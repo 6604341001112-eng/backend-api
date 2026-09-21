@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เข้าสู่ระบบ | AI Stock Sales Forecasting System</title>
+<style>
+  :root {
+    --navy: #0F172A;
+    --blue: #2563EB;
+    --blue-hover: #1D4ED8;
+    --gray-bg: #F1F5F9;
+    --gray-line: #E2E8F0;
+    --gray-text: #475569;
+    --ink: #0F172A;
+    --white: #FFFFFF;
+    --red: #DC2626;
+    --font: "Segoe UI", "Leelawadee UI", "Sarabun", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--gray-bg);
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .login-card {
+    background: var(--white);
+    border: 1px solid var(--gray-line);
+    border-radius: 16px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+  }
+  .brand { text-align: center; margin-bottom: 24px; }
+  .brand h2 { color: var(--navy); font-size: 20px; font-weight: 700; }
+  .brand p { color: var(--gray-text); font-size: 13px; margin-top: 4px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--ink); }
+  .form-group input {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--gray-line); border-radius: 8px; font-size: 14px; font-family: var(--font); outline: none; transition: border-color 0.2s;
+  }
+  .form-group input:focus { border-color: var(--blue); }
+  .btn-login {
+    width: 100%; background: var(--blue); color: var(--white); border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; font-family: var(--font); cursor: pointer; transition: background 0.2s; margin-top: 8px;
+  }
+  .btn-login:hover { background: var(--blue-hover); }
+  .error-msg { color: var(--red); font-size: 12.5px; margin-top: 12px; text-align: center; display: none; }
+  .hint { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--gray-line); font-size: 11.5px; color: var(--gray-text); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="brand">
+    <h2>AI Stock</h2>
+    <p>Sales Forecasting System</p>
+  </div>
+
+  <form id="loginForm" onsubmit="handleLogin(event)">
+    <div class="form-group">
+      <label for="username">ชื่อผู้ใช้งาน (Username)</label>
+      <input type="text" id="username" placeholder="ระบุชื่อผู้ใช้งาน" required>
+    </div>
+
+    <div class="form-group">
+      <label for="password">รหัสผ่าน (Password)</label>
+      <input type="password" id="password" placeholder="ระบุรหัสผ่าน" required>
+    </div>
+
+    <button type="submit" class="btn-login">เข้าสู่ระบบ</button>
+    <div id="errorMsg" class="error-msg">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
+  </form>
+
+  <div class="hint">
+    <strong>💡 บัญชีสำหรับทดสอบ (ST-09):</strong><br>
+    • <strong>Admin:</strong> admin / admin123 (เข้าถึงได้ทุกเมนู)<br>
+    • <strong>Owner:</strong> owner / owner123 (เข้าถึงเฉพาะ Dashboard & รายงาน)
+  </div>
+</div>
+
+<script>
+function handleLogin(e) {
+  e.preventDefault();
+  const user = document.getElementById('username').value.trim();
+  const pass = document.getElementById('password').value.trim();
+  const errorMsg = document.getElementById('errorMsg');
+
+  // ตรวจสอบและบันทึก Role ตาม Username โดยตรง
+  if (user === 'admin' && pass === 'admin123') {
+    sessionStorage.setItem('userRole', 'admin');
+    sessionStorage.setItem('username', user);
+    window.location.href = 'dashboard.html';
+  } else if (user === 'owner' && pass === 'owner123') {
+    sessionStorage.setItem('userRole', 'owner');
+    sessionStorage.setItem('username', user);
+    window.location.href = 'dashboard.html';
+  } else {
+    errorMsg.style.display = 'block';
+  }
+}
+</script>
+
+</body>
+</html>

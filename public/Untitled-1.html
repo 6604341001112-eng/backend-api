@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard: พยากรณ์ยอดขายด้วย AI (XGBoost)</title>
+
+<!-- ดึง Chart.js CDN หลัก พร้อมระบบสลับไป CDN สำรองอัตโนมัติหากติดบล็อก -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+  if (typeof Chart === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>');
+  }
+</script>
+
+<style>
+  :root{
+    --navy:#0F172A; --blue:#2563EB; --blue-light:#EFF6FF; --blue-soft:#DBEAFE;
+    --gray-bg:#F1F5F9; --gray-line:#E2E8F0; --gray-mid:#94A3B8; --gray-text:#475569;
+    --ink:#0F172A; --white:#FFFFFF; --amber:#D97706; --amber-bg:#FEF3C7;
+    --green:#059669; --red:#DC2626;
+    --font:"Segoe UI","Leelawadee UI","Sarabun",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--gray-bg);color:var(--ink);}
+  .shell{display:flex;min-height:100vh;}
+  .sidebar{width:210px;background:var(--navy);color:#CBD5E1;flex-shrink:0;padding:22px 0;}
+  .sidebar .logo{padding:0 20px 20px;color:#fff;font-weight:700;font-size:15px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:14px;line-height:1.4;}
+  .sidebar .logo span{display:block;font-size:11px;font-weight:400;color:var(--gray-mid);margin-top:3px;}
+  .nav-item{padding:11px 20px;font-size:13.5px;display:flex;align-items:center;gap:10px;border-left:3px solid transparent;color:#94A3B8;}
+  .nav-item .dot{width:6px;height:6px;border-radius:50%;background:#475569;flex-shrink:0;}
+  .nav-item.on{background:rgba(37,99,235,.15);color:#fff;border-left-color:var(--blue);font-weight:600;}
+  .nav-item.on .dot{background:var(--blue);}
+  .main{flex:1;min-width:0;}
+  .topbar{background:#fff;border-bottom:1px solid var(--gray-line);padding:14px 26px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .topbar h1{font-size:16px;font-weight:700;}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  select{border:1px solid var(--gray-line);border-radius:8px;padding:8px 12px;font-size:12.5px;font-family:var(--font);color:var(--ink);background:#fff;}
+  .content{padding:22px;}
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .kpi{background:#fff;border:1px solid var(--gray-line);border-radius:12px;padding:16px 18px;}
+  .kpi .label{font-size:11.5px;color:var(--gray-text);margin-bottom:8px;}
+  .kpi .value{font-size:21px;font-weight:700;}
+  .kpi .sub{font-size:11px;margin-top:6px;color:var(--gray-mid);}
+  .kpi.accent{background:var(--navy);border-color:var(--navy);}
+  .kpi.accent .label{color:#94A3B8;}
+  .kpi.accent .value{color:#fff;}
+  .panel-row{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px;}
+  .panel{background:#fff;border:1px solid var(--gray-line);border-radius:12px;padding:18px 20px;}
+  .panel h3{font-size:13.5px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .panel h3 .tag{font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-light);padding:3px 9px;border-radius:999px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{text-align:left;color:var(--gray-text);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;padding:9px 10px;border-bottom:1px solid var(--gray-line);background:#FAFBFC;position:sticky;top:0;}
+  tbody td{padding:9px 10px;border-bottom:1px solid #F1F5F9;}
+  tbody tr:hover{background:var(--blue-light);}
+  .tablewrap{max-height:340px;overflow-y:auto;}
+  .pill{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;display:inline-block;}
+  .pill.good{background:#DCFCE7;color:var(--green);}
+  .pill.warn{background:#FEF3C7;color:var(--amber);}
+  .pill.bad{background:#FEE2E2;color:var(--red);}
+  canvas{max-width:100%;}
+  @media (max-width:900px){
+    .shell{flex-direction:column;}
+    .sidebar{width:100%;}
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .panel-row{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="sidebar">
+    <div class="logo">AI Stock<span>Sales Forecasting System</span></div>
+    <div class="nav-item"><span class="dot"></span>Dashboard</div>
+    <div class="nav-item"><span class="dot"></span>จัดการสินค้า</div>
+    <div class="nav-item"><span class="dot"></span>หมวดหมู่สินค้า</div>
+    <div class="nav-item"><span class="dot"></span>การขาย</div>
+    <div class="nav-item on"><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</div>
+    <div class="nav-item"><span class="dot"></span>รายงาน</div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <h1>Dashboard พยากรณ์ยอดขายด้วย AI</h1>
+      <div class="controls">
+        <select id="productFilter"></select>
+        <select id="rangeFilter">
+          <option value="all">ทุกช่วงเวลา</option>
+          <option value="14">14 วันล่าสุด</option>
+          <option value="7">7 วันล่าสุด</option>
+        </select>
+      </div>
+    </div>
+    <div class="content">
+      <div class="kpi-row" id="kpiRow"></div>
+      <div class="panel-row">
+        <div class="panel">
+          <h3>ยอดขายจริง vs AI พยากรณ์ <span class="tag" id="modelTag">XGBoost</span></h3>
+          <canvas id="lineChart" height="110"></canvas>
+        </div>
+        <div class="panel">
+          <h3>ความแม่นยำเฉลี่ยต่อสินค้า</h3>
+          <canvas id="accBar" height="130"></canvas>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="panel">
+          <h3>ส่วนต่างยอดขายจริงกับพยากรณ์ (Error) รายวัน</h3>
+          <canvas id="errChart" height="110"></canvas>
+        </div>
+        <div class="panel">
+          <h3>สัดส่วนยอดขายจริงตามสินค้า</h3>
+          <canvas id="pieChart" height="130"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>ข้อมูลพยากรณ์รายรายการ <span class="tag" id="rowCount">0 รายการ</span></h3>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>วันที่</th><th>สินค้า</th><th>พยากรณ์</th><th>ยอดขายจริง</th><th>ผลต่าง (Diff)</th><th>Accuracy</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW = [
+  {"id": 4, "date": "2026-07-13", "product": "กาแฟอเมริกาโน่", "predicted": 497.25, "actual": 469.0, "model": "XGBoost", "accuracy": 94.32},
+  {"id": 5, "date": "2026-07-13", "product": "ชาไทยเย็น", "predicted": 357.79, "actual": 346.0, "model": "XGBoost", "accuracy": 96.70},
+  {"id": 6, "date": "2026-07-13", "product": "เค้กช็อกโกแลต", "predicted": 199.69, "actual": 163.0, "model": "XGBoost", "accuracy": 81.65},
+  {"id": 7, "date": "2026-07-14", "product": "กาแฟอเมริกาโน่", "predicted": 494.01, "actual": 450.0, "model": "XGBoost", "accuracy": 91.09},
+  {"id": 8, "date": "2026-07-14", "product": "ชาไทยเย็น", "predicted": 354.54, "actual": 302.0, "model": "XGBoost", "accuracy": 85.18},
+  {"id": 9, "date": "2026-07-14", "product": "เค้กช็อกโกแลต", "predicted": 196.44, "actual": 206.0, "model": "XGBoost", "accuracy": 95.12},
+  {"id": 10, "date": "2026-07-15", "product": "กาแฟอเมริกาโน่", "predicted": 490.76, "actual": 523.0, "model": "XGBoost", "accuracy": 93.43},
+  {"id": 11, "date": "2026-07-15", "product": "ชาไทยเย็น", "predicted": 351.29, "actual": 371.0, "model": "XGBoost", "accuracy": 94.37},
+  {"id": 12, "date": "2026-07-15", "product": "เค้กช็อกโกแลต", "predicted": 193.20, "actual": 173.0, "model": "XGBoost", "accuracy": 89.55},
+  {"id": 13, "date": "2026-07-16", "product": "กาแฟอเมริกาโน่", "predicted": 487.51, "actual": 457.0, "model": "XGBoost", "accuracy": 93.74},
+  {"id": 14, "date": "2026-07-16", "product": "ชาไทยเย็น", "predicted": 348.05, "actual": 335.0, "model": "XGBoost", "accuracy": 96.25},
+  {"id": 15, "date": "2026-07-16", "product": "เค้กช็อกโกแลต", "predicted": 189.95, "actual": 207.0, "model": "XGBoost", "accuracy": 91.02},
+  {"id": 16, "date": "2026-07-17", "product": "กาแฟอเมริกาโน่", "predicted": 484.27, "actual": 477.0, "model": "XGBoost", "accuracy": 98.50},
+  {"id": 17, "date": "2026-07-17", "product": "ชาไทยเย็น", "predicted": 344.80, "actual": 340.0, "model": "XGBoost", "accuracy": 98.61},
+  {"id": 18, "date": "2026-07-17", "product": "เค้กช็อกโกแลต", "predicted": 186.70, "actual": 176.0, "model": "XGBoost", "accuracy": 94.27},
+  {"id": 19, "date": "2026-07-18", "product": "กาแฟอเมริกาโน่", "predicted": 635.69, "actual": 616.0, "model": "XGBoost", "accuracy": 96.90},
+  {"id": 20, "date": "2026-07-18", "product": "ชาไทยเย็น", "predicted": 496.22, "actual": 533.0, "model": "XGBoost", "accuracy": 92.58},
+  {"id": 21, "date": "2026-07-18", "product": "เค้กช็อกโกแลต", "predicted": 338.13, "actual": 328.0, "model": "XGBoost", "accuracy": 97.01},
+  {"id": 22, "date": "2026-07-19", "product": "กาแฟอเมริกาโน่", "predicted": 632.44, "actual": 634.0, "model": "XGBoost", "accuracy": 99.75},
+  {"id": 23, "date": "2026-07-19", "product": "ชาไทยเย็น", "predicted": 492.97, "actual": 531.0, "model": "XGBoost", "accuracy": 92.29},
+  {"id": 24, "date": "2026-07-19", "product": "เค้กช็อกโกแลต", "predicted": 334.88, "actual": 368.0, "model": "XGBoost", "accuracy": 90.11},
+  {"id": 25, "date": "2026-07-20", "product": "กาแฟอเมริกาโน่", "predicted": 497.13, "actual": 515.0, "model": "XGBoost", "accuracy": 96.41},
+  {"id": 26, "date": "2026-07-20", "product": "ชาไทยเย็น", "predicted": 357.66, "actual": 329.0, "model": "XGBoost", "accuracy": 91.99},
+  {"id": 27, "date": "2026-07-20", "product": "เค้กช็อกโกแลต", "predicted": 199.57, "actual": 154.0, "model": "XGBoost", "accuracy": 77.17},
+  {"id": 28, "date": "2026-07-21", "product": "กาแฟอเมริกาโน่", "predicted": 493.88, "actual": 482.0, "model": "XGBoost", "accuracy": 97.59},
+  {"id": 29, "date": "2026-07-21", "product": "ชาไทยเย็น", "predicted": 354.41, "actual": 317.0, "model": "XGBoost", "accuracy": 89.44},
+  {"id": 30, "date": "2026-07-21", "product": "เค้กช็อกโกแลต", "predicted": 196.32, "actual": 198.0, "model": "XGBoost", "accuracy": 99.14},
+  {"id": 31, "date": "2026-07-22", "product": "กาแฟอเมริกาโน่", "predicted": 490.63, "actual": 475.0, "model": "XGBoost", "accuracy": 96.81},
+  {"id": 32, "date": "2026-07-22", "product": "ชาไทยเย็น", "predicted": 351.17, "actual": 385.0, "model": "XGBoost", "accuracy": 90.35},
+  {"id": 33, "date": "2026-07-22", "product": "เค้กช็อกโกแลต", "predicted": 193.07, "actual": 198.0, "model": "XGBoost", "accuracy": 97.46},
+  {"id": 34, "date": "2026-07-23", "product": "กาแฟอเมริกาโน่", "predicted": 487.39, "actual": 547.0, "model": "XGBoost", "accuracy": 87.77},
+  {"id": 35, "date": "2026-07-23", "product": "ชาไทยเย็น", "predicted": 347.92, "actual": 395.14, "model": "XGBoost", "accuracy": 86.42},
+  {"id": 36, "date": "2026-07-23", "product": "เค้กช็อกโกแลต", "predicted": 189.83, "actual": 204.0, "model": "XGBoost", "accuracy": 92.54},
+  {"id": 37, "date": "2026-07-24", "product": "กาแฟอเมริกาโน่", "predicted": 484.14, "actual": 530.0, "model": "XGBoost", "accuracy": 90.53},
+  {"id": 38, "date": "2026-07-24", "product": "ชาไทยเย็น", "predicted": 344.67, "actual": 304.0, "model": "XGBoost", "accuracy": 88.21},
+  {"id": 39, "date": "2026-07-24", "product": "เค้กช็อกโกแลต", "predicted": 186.58, "actual": 202.0, "model": "XGBoost", "accuracy": 91.68},
+  {"id": 40, "date": "2026-07-25", "product": "กาแฟอเมริกาโน่", "predicted": 635.56, "actual": 652.0, "model": "XGBoost", "accuracy": 97.40},
+  {"id": 41, "date": "2026-07-25", "product": "ชาไทยเย็น", "predicted": 496.10, "actual": 523.0, "model": "XGBoost", "accuracy": 94.58},
+  {"id": 42, "date": "2026-07-25", "product": "เค้กช็อกโกแลต", "predicted": 338.00, "actual": 384.0, "model": "XGBoost", "accuracy": 86.39},
+  {"id": 43, "date": "2026-07-26", "product": "กาแฟอเมริกาโน่", "predicted": 632.32, "actual": 600.0, "model": "XGBoost", "accuracy": 94.89},
+  {"id": 44, "date": "2026-07-26", "product": "ชาไทยเย็น", "predicted": 492.85, "actual": 526.0, "model": "XGBoost", "accuracy": 93.27},
+  {"id": 45, "date": "2026-07-26", "product": "เค้กช็อกโกแลต", "predicted": 334.76, "actual": 364.0, "model": "XGBoost", "accuracy": 91.26},
+  {"id": 46, "date": "2026-07-27", "product": "กาแฟอเมริกาโน่", "predicted": 497.00, "actual": 481.0, "model": "XGBoost", "accuracy": 96.78},
+  {"id": 47, "date": "2026-07-27", "product": "ชาไทยเย็น", "predicted": 357.54, "actual": 394.0, "model": "XGBoost", "accuracy": 89.81},
+  {"id": 48, "date": "2026-07-27", "product": "เค้กช็อกโกแลต", "predicted": 199.44, "actual": 175.0, "model": "XGBoost", "accuracy": 87.75},
+  {"id": 49, "date": "2026-07-28", "product": "กาแฟอเมริกาโน่", "predicted": 493.76, "actual": 503.0, "model": "XGBoost", "accuracy": 98.13},
+  {"id": 50, "date": "2026-07-28", "product": "ชาไทยเย็น", "predicted": 354.29, "actual": 349.0, "model": "XGBoost", "accuracy": 98.51},
+  {"id": 51, "date": "2026-07-28", "product": "เค้กช็อกโกแลต", "predicted": 196.19, "actual": 203.0, "model": "XGBoost", "accuracy": 96.53},
+  {"id": 52, "date": "2026-07-29", "product": "กาแฟอเมริกาโน่", "predicted": 490.51, "actual": 543.0, "model": "XGBoost", "accuracy": 89.30},
+  {"id": 53, "date": "2026-07-29", "product": "ชาไทยเย็น", "predicted": 351.04, "actual": 356.0, "model": "XGBoost", "accuracy": 98.59},
+  {"id": 54, "date": "2026-07-29", "product": "เค้กช็อกโกแลต", "predicted": 192.95, "actual": 196.0, "model": "XGBoost", "accuracy": 98.42},
+  {"id": 55, "date": "2026-07-30", "product": "กาแฟอเมริกาโน่", "predicted": 487.26, "actual": 534.0, "model": "XGBoost", "accuracy": 90.40},
+  {"id": 56, "date": "2026-07-30", "product": "ชาไทยเย็น", "predicted": 347.80, "actual": 374.0, "model": "XGBoost", "accuracy": 92.47},
+  {"id": 57, "date": "2026-07-30", "product": "เค้กช็อกโกแลต", "predicted": 189.70, "actual": 187.0, "model": "XGBoost", "accuracy": 98.58},
+  {"id": 58, "date": "2026-07-31", "product": "กาแฟอเมริกาโน่", "predicted": 484.02, "actual": 547.0, "model": "XGBoost", "accuracy": 86.98},
+  {"id": 59, "date": "2026-07-31", "product": "ชาไทยเย็น", "predicted": 344.55, "actual": 397.0, "model": "XGBoost", "accuracy": 84.78},
+  {"id": 60, "date": "2026-07-31", "product": "เค้กช็อกโกแลต", "predicted": 186.45, "actual": 228.0, "model": "XGBoost", "accuracy": 77.72},
+  {"id": 61, "date": "2026-08-01", "product": "กาแฟอเมริกาโน่", "predicted": 634.30, "actual": 662.0, "model": "XGBoost", "accuracy": 95.63},
+  {"id": 62, "date": "2026-08-01", "product": "ชาไทยเย็น", "predicted": 494.83, "actual": 487.0, "model": "XGBoost", "accuracy": 98.42},
+  {"id": 63, "date": "2026-08-01", "product": "เค้กช็อกโกแลต", "predicted": 336.74, "actual": 378.0, "model": "XGBoost", "accuracy": 87.75},
+  {"id": 64, "date": "2026-08-02", "product": "กาแฟอเมริกาโน่", "predicted": 631.05, "actual": 650.0, "model": "XGBoost", "accuracy": 97.00},
+  {"id": 65, "date": "2026-08-02", "product": "ชาไทยเย็น", "predicted": 491.58, "actual": 478.0, "model": "XGBoost", "accuracy": 97.25},
+  {"id": 66, "date": "2026-08-02", "product": "เค้กช็อกโกแลต", "predicted": 333.49, "actual": 355.0, "model": "XGBoost", "accuracy": 93.55},
+  {"id": 67, "date": "2026-08-03", "product": "กาแฟอเมริกาโน่", "predicted": 495.73, "actual": 466.0, "model": "XGBoost", "accuracy": 94.00},
+  {"id": 68, "date": "2026-08-03", "product": "ชาไทยเย็น", "predicted": 356.27, "actual": 387.0, "model": "XGBoost", "accuracy": 91.36},
+  {"id": 69, "date": "2026-08-03", "product": "เค้กช็อกโกแลต", "predicted": 198.17, "actual": 155.0, "model": "XGBoost", "accuracy": 78.22},
+  {"id": 70, "date": "2026-08-04", "product": "กาแฟอเมริกาโน่", "predicted": 492.49, "actual": 526.0, "model": "XGBoost", "accuracy": 93.18},
+  {"id": 71, "date": "2026-08-04", "product": "ชาไทยเย็น", "predicted": 353.02, "actual": 342.0, "model": "XGBoost", "accuracy": 96.88},
+  {"id": 72, "date": "2026-08-04", "product": "เค้กช็อกโกแลต", "predicted": 194.93, "actual": 172.0, "model": "XGBoost", "accuracy": 88.24},
+  {"id": 73, "date": "2026-08-05", "product": "กาแฟอเมริกาโน่", "predicted": 489.24, "actual": 544.0, "model": "XGBoost", "accuracy": 88.81},
+  {"id": 74, "date": "2026-08-05", "product": "ชาไทยเย็น", "predicted": 349.77, "actual": 315.0, "model": "XGBoost", "accuracy": 90.06},
+  {"id": 75, "date": "2026-08-05", "product": "เค้กช็อกโกแลต", "predicted": 191.68, "actual": 153.0, "model": "XGBoost", "accuracy": 79.82}
+];
+
+const productColors = {};
+const palette = ['#2563EB','#059669','#D97706','#DC2626','#7C3AED','#0891B2'];
+let ci = 0;
+[...new Set(RAW.map(d=>d.product))].forEach(p=>{ productColors[p] = palette[ci % palette.length]; ci++; });
+
+const productSel = document.getElementById('productFilter');
+productSel.innerHTML = '<option value="all">สินค้าทั้งหมด</option>' +
+  [...new Set(RAW.map(d=>d.product))].map(p=>`<option value="${p}">${p}</option>`).join('');
+
+let lineChart, accBar, errChart, pieChart;
+
+function fmt(n){ return Number(n).toLocaleString('th-TH', {maximumFractionDigits:0}); }
+
+function getFiltered(){
+  const prod = productSel.value;
+  const range = document.getElementById('rangeFilter').value;
+  let rows = RAW.filter(d => prod==='all' || d.product===prod);
+  const dates = [...new Set(rows.map(r=>r.date))].sort();
+  if(range !== 'all'){
+    const n = parseInt(range);
+    const keep = dates.slice(-n);
+    rows = rows.filter(r => keep.includes(r.date));
+  }
+  return rows;
+}
+
+function renderKPI(rows){
+  const totalPred = rows.reduce((s,r)=>s+r.predicted,0);
+  const totalActual = rows.reduce((s,r)=>s+r.actual,0);
+  const avgAcc = rows.reduce((s,r)=>s+r.accuracy,0)/rows.length;
+  const diffPct = ((totalActual-totalPred)/totalPred*100);
+  const best = rows.reduce((a,b)=> b.accuracy>a.accuracy? b:a, rows[0]);
+  const worst = rows.reduce((a,b)=> b.accuracy<a.accuracy? b:a, rows[0]);
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi accent"><div class="label">ยอดขายจริงรวม</div><div class="value">฿${fmt(totalActual)}</div><div class="sub" style="color:#94A3B8">พยากรณ์ ฿${fmt(totalPred)}</div></div>
+    <div class="kpi"><div class="label">ความแม่นยำเฉลี่ย (Accuracy)</div><div class="value">${avgAcc.toFixed(2)}%</div><div class="sub">จาก ${rows.length} รายการพยากรณ์</div></div>
+    <div class="kpi"><div class="label">ส่วนต่างรวม (จริง - พยากรณ์)</div><div class="value" style="color:${diffPct>=0?'#059669':'#DC2626'}">${diffPct>=0?'+':''}${diffPct.toFixed(2)}%</div><div class="sub">เทียบกับยอดพยากรณ์รวม</div></div>
+    <div class="kpi"><div class="label">แม่นยำสูงสุด / ต่ำสุด</div><div class="value" style="font-size:14px;">${best.accuracy.toFixed(1)}% / ${worst.accuracy.toFixed(1)}%</div><div class="sub">${best.product} · ${worst.product}</div></div>
+  `;
+}
+
+function renderLine(rows){
+  if (typeof Chart === 'undefined') return;
+  const dates = [...new Set(rows.map(r=>r.date))].sort();
+  const prod = productSel.value;
+  let datasets = [];
+  if(prod === 'all'){
+    const predByDate = {}, actByDate = {};
+    dates.forEach(d=>{ predByDate[d]=0; actByDate[d]=0; });
+    rows.forEach(r=>{ predByDate[r.date]+=r.predicted; actByDate[r.date]+=r.actual; });
+    datasets = [
+      { label:'ยอดขายจริง (รวม)', data: dates.map(d=>actByDate[d]), borderColor:'#0F172A', backgroundColor:'#0F172A', tension:.3, borderWidth:2.5, pointRadius:2 },
+      { label:'AI พยากรณ์ (รวม)', data: dates.map(d=>predByDate[d]), borderColor:'#2563EB', backgroundColor:'#2563EB', borderDash:[6,4], tension:.3, borderWidth:2.5, pointRadius:2 }
+    ];
+  } else {
+    const byDate = {};
+    rows.forEach(r=>{ byDate[r.date]=r; });
+    datasets = [
+      { label:'ยอดขายจริง', data: dates.map(d=>byDate[d]?.actual ?? null), borderColor:'#0F172A', backgroundColor:'#0F172A', tension:.3, borderWidth:2.5, pointRadius:2 },
+      { label:'AI พยากรณ์', data: dates.map(d=>byDate[d]?.predicted ?? null), borderColor: productColors[prod], backgroundColor: productColors[prod], borderDash:[6,4], tension:.3, borderWidth:2.5, pointRadius:2 }
+    ];
+  }
+  if(lineChart) lineChart.destroy();
+  lineChart = new Chart(document.getElementById('lineChart'), {
+    type:'line',
+    data:{ labels: dates.map(d=>d.slice(5)), datasets },
+    options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:14,font:{size:11}}}}, scales:{ y:{ grid:{color:'#F1F5F9'} }, x:{ grid:{display:false} } } }
+  });
+}
+
+function renderAccBar(rows){
+  if (typeof Chart === 'undefined') return;
+  const products = [...new Set(rows.map(r=>r.product))];
+  const avgAcc = products.map(p=>{
+    const items = rows.filter(r=>r.product===p);
+    return items.reduce((s,r)=>s+r.accuracy,0)/items.length;
+  });
+  if(accBar) accBar.destroy();
+  accBar = new Chart(document.getElementById('accBar'), {
+    type:'bar',
+    data:{ labels: products, datasets:[{ label:'Accuracy เฉลี่ย (%)', data: avgAcc, backgroundColor: products.map(p=>productColors[p]), borderRadius:6 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ min:0, max:100, grid:{color:'#F1F5F9'} }, x:{ grid:{display:false} } } }
+  });
+}
+
+function renderErr(rows){
+  if (typeof Chart === 'undefined') return;
+  const dates = [...new Set(rows.map(r=>r.date))].sort();
+  const prod = productSel.value;
+  let errData;
+  if(prod==='all'){
+    const predByDate={}, actByDate={};
+    dates.forEach(d=>{predByDate[d]=0;actByDate[d]=0;});
+    rows.forEach(r=>{predByDate[r.date]+=r.predicted; actByDate[r.date]+=r.actual;});
+    errData = dates.map(d=> actByDate[d]-predByDate[d]);
+  } else {
+    const byDate={};
+    rows.forEach(r=>{byDate[r.date]=r;});
+    errData = dates.map(d=> byDate[d] ? (byDate[d].actual-byDate[d].predicted) : 0);
+  }
+  if(errChart) errChart.destroy();
+  errChart = new Chart(document.getElementById('errChart'), {
+    type:'bar',
+    data:{ labels: dates.map(d=>d.slice(5)), datasets:[{ label:'จริง - พยากรณ์', data: errData, backgroundColor: errData.map(v=> v>=0 ? '#059669':'#DC2626'), borderRadius:4 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ grid:{color:'#F1F5F9'} }, x:{ grid:{display:false} } } }
+  });
+}
+
+function renderPie(rows){
+  if (typeof Chart === 'undefined') return;
+  const products = [...new Set(rows.map(r=>r.product))];
+  const totals = products.map(p=> rows.filter(r=>r.product===p).reduce((s,r)=>s+r.actual,0));
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById('pieChart'), {
+    type:'doughnut',
+    data:{ labels: products, datasets:[{ data: totals, backgroundColor: products.map(p=>productColors[p]), borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:12,font:{size:11}}}} }
+  });
+}
+
+function renderTable(rows){
+  document.getElementById('rowCount').textContent = rows.length + ' รายการ';
+  const sorted = [...rows].sort((a,b)=> a.date.localeCompare(b.date) || a.product.localeCompare(b.product));
+  document.getElementById('tbody').innerHTML = sorted.map(r=>{
+    const diff = r.actual - r.predicted;
+    const diffPct = (diff/r.predicted*100);
+    const pillClass = r.accuracy>=90?'good':(r.accuracy>=80?'warn':'bad');
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${r.product}</td>
+      <td>${fmt(r.predicted)}</td>
+      <td>${fmt(r.actual)}</td>
+      <td style="color:${diff>=0?'#059669':'#DC2626'}">${diff>=0?'+':''}${diffPct.toFixed(1)}%</td>
+      <td><span class="pill ${pillClass}">${r.accuracy.toFixed(1)}%</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAll(){
+  const rows = getFiltered();
+  document.getElementById('modelTag').textContent = rows[0]?.model || 'XGBoost';
+  renderKPI(rows);
+  renderLine(rows);
+  renderAccBar(rows);
+  renderErr(rows);
+  renderPie(rows);
+  renderTable(rows);
+}
+
+productSel.addEventListener('change', renderAll);
+document.getElementById('rangeFilter').addEventListener('change', renderAll);
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderAll);
+} else {
+  renderAll();
+}
+</script>
+</body>
+</html>

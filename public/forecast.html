@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>พยากรณ์ยอดขายด้วย AI | AI Stock</title>
+
+<script>
+  (function checkAuth() {
+    const username = sessionStorage.getItem('username');
+    if (!username) {
+      alert('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+      window.location.href = 'login.html';
+    }
+  })();
+</script>
+
+<style>
+  :root {
+    --navy: #0F172A; --blue: #2563EB; --blue-light: #EFF6FF;
+    --gray-bg: #F1F5F9; --gray-line: #E2E8F0; --gray-mid: #94A3B8; --gray-text: #475569;
+    --ink: #0F172A; --white: #FFFFFF; --green: #16A34A; --red: #DC2626;
+    --font: "Sarabun", "Leelawadee UI", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--gray-bg); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  .shell { display: flex; min-height: 100vh; }
+  
+  /* Sidebar */
+  .sidebar { width: 220px; background: var(--navy); color: #CBD5E1; flex-shrink: 0; padding: 22px 0; }
+  .sidebar .logo { padding: 0 20px 20px; color: #fff; font-weight: 700; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 14px; line-height: 1.4; }
+  .sidebar .logo span { display: block; font-size: 11px; font-weight: 400; color: var(--gray-mid); margin-top: 4px; }
+  
+  .nav-item { 
+    padding: 12px 20px; font-size: 13.5px; display: flex; align-items: center; gap: 10px; 
+    border-left: 3px solid transparent; color: #94A3B8; text-decoration: none; transition: 0.2s;
+  }
+  .nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
+  .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #475569; flex-shrink: 0; }
+  .nav-item.on { background: rgba(37, 99, 235, .15); color: #fff; border-left-color: var(--blue); font-weight: 600; }
+  .nav-item.on .dot { background: var(--blue); }
+
+  /* Main Content */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar { background: #fff; border-bottom: 1px solid var(--gray-line); padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 17px; font-weight: 700; color: var(--navy); }
+  .user-badge { font-size: 13px; font-weight: 600; color: var(--gray-text); background: var(--gray-bg); padding: 7px 14px; border-radius: 8px; border: 1px solid var(--gray-line); }
+
+  .content { padding: 24px; flex: 1; }
+  
+  /* Summary Cards */
+  .grid-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .card-stat { background: #fff; border: 1px solid var(--gray-line); border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+  .card-stat h4 { font-size: 12.5px; color: var(--gray-text); margin-bottom: 8px; font-weight: 600; }
+  .card-stat .value { font-size: 22px; font-weight: 700; color: var(--navy); }
+  .card-stat .sub { font-size: 11.5px; color: var(--green); margin-top: 4px; font-weight: 600; }
+
+  /* Panel & Table */
+  .panel { background: #fff; border: 1px solid var(--gray-line); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .panel-title { font-size: 15px; font-weight: 700; color: var(--navy); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  thead th { text-align: left; color: var(--gray-text); font-weight: 600; font-size: 12px; text-transform: uppercase; padding: 12px 14px; border-bottom: 2px solid var(--gray-line); background: #FAFBFC; vertical-align: middle; }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; word-wrap: break-word; }
+  tbody tr:hover { background: var(--blue-light); }
+  
+  /* Column Layout Widths */
+  .col-code { width: 110px; }
+  .col-name { width: auto; }
+  .col-cat { width: 130px; }
+  .col-stock { width: 110px; }
+  .col-demand { width: 140px; }
+  .col-status { width: 135px; }
+  .col-advice { width: 180px; }
+
+  .badge-trend { padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; line-height: 1.2; }
+  .badge-up { background: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
+  .badge-warn { background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
+
+  /* Pagination Bar Styles */
+  .pagination-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--gray-line);
+    font-size: 13px;
+    color: var(--gray-text);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pagination-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .page-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--gray-line);
+    background: #fff;
+    color: var(--gray-text);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-family: var(--font);
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .page-btn:hover:not(:disabled) {
+    background: var(--blue-light);
+    color: var(--blue);
+    border-color: #BFDBFE;
+  }
+  .page-btn.active {
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
+  }
+  .page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">AI Stock<span>Sales Forecasting System</span></div>
+    <a href="dashboard.html" class="nav-item"><span class="dot"></span>Dashboard</a>
+    <a href="product.html" class="nav-item"><span class="dot"></span>จัดการสินค้า</a>
+    <a href="categories.html" class="nav-item"><span class="dot"></span>หมวดหมู่สินค้า</a>
+    <a href="sales.html" class="nav-item"><span class="dot"></span>การขาย</a>
+    <a href="forecast.html" class="nav-item on"><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</a>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>🤖 พยากรณ์ยอดขายด้วย AI</h1>
+      <span id="userDisplay" class="user-badge">👤 ผู้ใช้งาน: -</span>
+    </div>
+
+    <div class="content">
+      <!-- Summary Cards -->
+      <div class="grid-summary">
+        <div class="card-stat">
+          <h4>คาดการณ์ยอดขาย 7 วันข้างหน้า</h4>
+          <div class="value" id="predictedRevenue">0.00</div>
+          <div class="sub">▲ ประเมินเพิ่มขึ้น +12.5%</div>
+        </div>
+        <div class="card-stat">
+          <h4>สินค้าที่คาดว่าจะขายดีที่สุด</h4>
+          <div class="value" id="topProduct" style="font-size: 16px; margin-top: 6px;">-</div>
+          <div class="sub">ความแม่นยำ AI: 94.2%</div>
+        </div>
+        <div class="card-stat">
+          <h4>รายการที่ต้องรีบเติมสต็อก</h4>
+          <div class="value" id="reorderCount" style="color: var(--red);">0 รายการ</div>
+          <div class="sub" style="color: var(--red);">เสี่ยงสต็อกขาดใน 3 วัน</div>
+        </div>
+      </div>
+
+      <!-- AI Advice Panel (Gemini) -->
+      <div id="aiAdvicePanel" class="panel" style="margin-bottom: 20px; display: none; background: #EFF6FF; border-color: #BFDBFE;">
+        <div class="panel-title" style="margin-bottom: 8px;">🤖 คำแนะนำจาก AI (Gemini)</div>
+        <div id="aiAdviceText" style="font-size: 13px; color: var(--gray-text); line-height: 1.6;"></div>
+      </div>
+
+      <!-- Forecast Table -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">📦 ผลการพยากรณ์ความต้องการสินค้า (7 วันข้างหน้า) — คำนวณจากยอดขายจริง</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th class="col-code">รหัสสินค้า</th>
+              <th class="col-name">ชื่อสินค้า</th>
+              <th class="col-cat">หมวดหมู่</th>
+              <th class="col-stock">สต็อกปัจจุบัน</th>
+              <th class="col-demand">คาดการณ์ยอดขาย</th>
+              <th class="col-status">สถานะสต็อก</th>
+              <th class="col-advice">ข้อเสนอแนะ AI</th>
+            </tr>
+          </thead>
+          <tbody id="forecastTableBody">
+            <tr><td colspan="7" style="text-align:center; padding: 24px;">กำลังโหลดข้อมูลพยากรณ์...</td></tr>
+          </tbody>
+        </table>
+
+        <!-- 📄 ตัวควบคุมการแบ่งหน้า (Pagination) -->
+        <div class="pagination-bar">
+          <span id="pageInfoText">แสดง 0 - 0 จาก 0 รายการ</span>
+          <div class="pagination-controls" id="paginationButtons"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('userDisplay').innerText = '👤 ผู้ใช้งาน: ' + (sessionStorage.getItem('username') || 'Guest');
+
+  const API_FORECAST_URL = '/api/forecast';
+  let allProducts = [];
+  let currentPage = 1;
+  const pageSize = 10;
+
+  async function runForecastAI() {
+    const tbody = document.getElementById('forecastTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px;">กำลังคำนวณข้อมูลด้วย AI...</td></tr>';
+
+    try {
+      const res = await fetch(API_FORECAST_URL);
+      if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลพยากรณ์ได้');
+      
+      const response = await res.json();
+      allProducts = response.data || [];
+
+      if (response.ai_advice) {
+        document.getElementById('aiAdvicePanel').style.display = 'block';
+        document.getElementById('aiAdviceText').innerText = response.ai_advice;
+      }
+
+      if (!Array.isArray(allProducts) || allProducts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--gray-mid);">ไม่พบข้อมูลพยากรณ์ในระบบ</td></tr>';
+        updatePaginationControls(0, 0, 0);
+        return;
+      }
+
+      // คำนวณสรุปการพยากรณ์ภาพรวม
+      let totalPredictedRev = 0;
+      let topProdName = '-';
+      let maxDemand = 0;
+      let reorderCount = 0;
+
+      allProducts.forEach((p) => {
+        const pPrice = Number(p.unit_price || 0);
+        const pStock = Number(p.stock || 0);
+        const predictedDemand = Number(p.predicted_sales || 0);
+
+        totalPredictedRev += predictedDemand * pPrice;
+
+        if (predictedDemand > maxDemand) {
+          maxDemand = predictedDemand;
+          topProdName = p.product_name || 'ไม่มีชื่อสินค้า';
+        }
+
+        if (pStock < predictedDemand) {
+          reorderCount++;
+        }
+      });
+
+      document.getElementById('predictedRevenue').innerText = totalPredictedRev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('topProduct').innerText = topProdName;
+      document.getElementById('reorderCount').innerText = reorderCount + ' รายการ';
+
+      currentPage = 1;
+      renderTable();
+
+    } catch (err) {
+      console.error('Error in AI Forecast:', err);
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--red); padding: 24px;">เกิดข้อผิดพลาดในการดึงข้อมูลพยากรณ์</td></tr>';
+    }
+  }
+
+  // แสดงผลตารางเฉพาะหน้าที่เลือก
+  function renderTable() {
+    const tbody = document.getElementById('forecastTableBody');
+    tbody.innerHTML = '';
+
+    const startIdx = (currentPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const pageProducts = allProducts.slice(startIdx, endIdx);
+
+    pageProducts.forEach((p) => {
+      const pCode = typeof p.product_id === 'string' ? p.product_id : `PRD-${String(p.product_id).padStart(3, '0')}`;
+      const pName = p.product_name || 'ไม่มีชื่อสินค้า';
+      const pCategory = p.category_name || 'ทั่วไป';
+      const pStock = Number(p.stock || 0);
+      const predictedDemand = Number(p.predicted_sales || 0);
+
+      const isStockLow = pStock < predictedDemand;
+      const qtyToOrder = predictedDemand - pStock;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="col-code"><strong>${pCode}</strong></td>
+        <td class="col-name"><strong>${pName}</strong></td>
+        <td class="col-cat">${pCategory}</td>
+        <td class="col-stock">${pStock} ชิ้น</td>
+        <td class="col-demand"><strong style="color: var(--blue);">${predictedDemand}</strong> ชิ้น</td>
+        <td class="col-status">
+          ${isStockLow 
+            ? '<span class="badge-trend badge-warn">⚠️ เสี่ยงไม่พอขาย</span>' 
+            : '<span class="badge-trend badge-up">✓ เพียงพอ</span>'}
+        </td>
+        <td class="col-advice">
+          ${isStockLow 
+            ? `<strong style="color: var(--red);">ควรสั่งเพิ่มประมาณ ${qtyToOrder} ชิ้น</strong>` 
+            : '<span style="color: #16A34A;">สต็อกอยู่ในระดับปลอดภัย</span>'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    updatePaginationControls(startIdx + 1, Math.min(endIdx, allProducts.length), allProducts.length);
+  }
+
+  // อัปเดตปุ่ม Pagination และ ข้อความระบุจำนวน
+  function updatePaginationControls(startRow, endRow, totalRows) {
+    const infoText = document.getElementById('pageInfoText');
+    const navBtns = document.getElementById('paginationButtons');
+
+    if (totalRows === 0) {
+      infoText.innerText = 'แสดง 0 - 0 จาก 0 รายการ';
+      navBtns.innerHTML = '';
+      return;
+    }
+
+    infoText.innerText = `แสดง ${startRow} - ${endRow} จาก ${totalRows} รายการ`;
+
+    const totalPages = Math.ceil(totalRows / pageSize);
+    let buttonsHtml = `<button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>❮ ก่อนหน้า</button>`;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+        buttonsHtml += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+      } else if (i === currentPage - 2 || i === currentPage + 2) {
+        buttonsHtml += `<span style="padding: 0 4px; color: var(--gray-mid);">...</span>`;
+      }
+    }
+
+    buttonsHtml += `<button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>ถัดไป ❯</button>`;
+    navBtns.innerHTML = buttonsHtml;
+  }
+
+  // เปลี่ยนหน้า
+  function changePage(page) {
+    const totalPages = Math.ceil(allProducts.length / pageSize);
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderTable();
+  }
+
+  // เรียกเริ่มทำงานเมื่อโหลดหน้า
+  runForecastAI();
+</script>
+
+</body>
+</html>

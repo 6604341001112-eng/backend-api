@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Stock — บันทึกรายการขาย (POS)</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --line:#e5e9f2; --txt:#1e293b; --muted:#64748b;
+    --primary:#2563eb; --primary-d:#1d4ed8;
+    --success:#16a34a; --success-bg:#f0fdf4;
+    --warn:#d97706;   --warn-bg:#fffbeb;
+    --danger:#dc2626; --danger-bg:#fef2f2;
+    --sb-bg:#131c33; --sb-active:#1b2748; --sb-txt:#9aa7bd; --sb-dot:#4b5670;
+    --sb-w:258px; --radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+  .app{display:flex;min-height:100vh}
+
+  /* ═══ SIDEBAR ═══ */
+  .sidebar{width:var(--sb-w);flex-shrink:0;background:var(--sb-bg);position:fixed;inset:0 auto 0 0;z-index:50;
+    display:flex;flex-direction:column;transition:transform .26s}
+  .brand{padding:24px 22px 18px}
+  .brand h2{font-size:19px;font-weight:700;color:#fff}
+  .brand span{display:block;font-size:12px;color:var(--sb-txt);margin-top:4px}
+  .sb-sep{height:1px;background:rgba(255,255,255,.07);margin-bottom:12px}
+  .nav{flex:1}
+  .nav-item{display:flex;align-items:center;gap:13px;width:100%;padding:12px 22px;
+    border:none;border-left:3px solid transparent;background:transparent;color:var(--sb-txt);
+    font-family:inherit;font-size:14.5px;text-align:left;text-decoration:none;cursor:pointer;transition:.16s}
+  .nav-item:hover{color:#dbe5f5;background:rgba(255,255,255,.035)}
+  .nav-item.active{background:var(--sb-active);border-left-color:#3b82f6;color:#fff;font-weight:600}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--sb-dot);flex-shrink:0;transition:.18s}
+  .nav-item.active .dot{background:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,.22)}
+
+  /* ═══ MAIN ═══ */
+  .main{flex:1;margin-left:var(--sb-w);min-width:0}
+  .header{background:var(--card);border-bottom:1px solid var(--line);padding:18px 28px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .header h1{font-size:19px;font-weight:700}
+  .user-chip{display:flex;align-items:center;gap:9px;background:#0f172a;color:#fff;
+    padding:10px 18px;border-radius:10px;font-size:14px}
+  .content{padding:24px 28px 40px}
+  .hamb{display:none;background:var(--card);border:1px solid var(--line);width:40px;height:40px;
+    border-radius:9px;font-size:18px;cursor:pointer}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+  @media(max-width:1024px){
+    .sidebar{transform:translateX(-100%)} .sidebar.open{transform:translateX(0)}
+    .main{margin-left:0} .hamb{display:block} .overlay.show{display:block}
+  }
+
+  .pos-grid{display:grid;grid-template-columns:1fr 1.25fr;gap:22px;align-items:start}
+  @media(max-width:1200px){.pos-grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;
+    box-shadow:0 1px 3px rgba(16,24,40,.05)}
+  .card h3{font-size:16px;font-weight:700;margin-bottom:18px}
+  .card h3 .sub{font-size:12.5px;font-weight:400;color:var(--muted);margin-left:8px}
+
+  label{display:block;font-size:13.5px;font-weight:500;margin-bottom:7px;color:#334155}
+  select,input{width:100%;padding:12px 14px;border:1px solid #cbd5e1;border-radius:9px;
+    font-family:inherit;font-size:14px;color:var(--txt);background:#fff;transition:.16s}
+  select:focus,input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  select:disabled,input:disabled{background:#f1f5f9;color:#94a3b8;cursor:not-allowed}
+  .field{margin-bottom:16px}
+  .qty-row{display:flex;gap:8px}
+  .qty-row input{text-align:center;font-weight:600;font-size:16px}
+  .qty-btn{width:46px;flex-shrink:0;border:1px solid #cbd5e1;background:#f8fafc;border-radius:9px;
+    font-size:19px;color:#475569;cursor:pointer;transition:.15s}
+  .qty-btn:hover:not(:disabled){background:var(--primary);color:#fff;border-color:var(--primary)}
+  .qty-btn:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ── กล่องสถานะสต็อก ── */
+  .stock-box{border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:14px;border:1px solid}
+  .stock-box .line{display:flex;justify-content:space-between;align-items:center}
+  .stock-box .line+.line{margin-top:8px}
+  .stock-box b{font-weight:700}
+  .s-ok{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+  .s-warn{background:var(--warn-bg);border-color:#fde68a;color:#92400e}
+  .s-err{background:var(--danger-bg);border-color:#fecaca;color:#991b1b}
+  .s-err .title{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:6px}
+  .price-lg{font-size:17px;font-weight:700;color:var(--primary)}
+
+  .btn{width:100%;padding:14px;border:none;border-radius:10px;font-family:inherit;font-size:15px;
+    font-weight:600;cursor:pointer;transition:.18s;display:flex;align-items:center;justify-content:center;gap:9px}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover:not(:disabled){background:var(--primary-d)}
+  .btn-success{background:var(--success);color:#fff}
+  .btn-success:hover:not(:disabled){background:#15803d}
+  .btn-ghost{background:#fff;border:1px solid #cbd5e1;color:#475569}
+  .btn-ghost:hover{background:#f8fafc}
+  .btn:disabled{background:#cbd5e1;color:#94a3b8;cursor:not-allowed}
+  .btn-sm{padding:10px;font-size:13.5px}
+
+  /* ── ตะกร้า ── */
+  .cart{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .cart-item{display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid var(--line)}
+  .cart-item:last-child{border-bottom:none}
+  .cart-item .nm{flex:1;min-width:0}
+  .cart-item .nm b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cart-item .nm span{font-size:12px;color:var(--muted)}
+  .mini{width:28px;height:28px;border:1px solid #cbd5e1;background:#fff;border-radius:7px;
+    font-size:15px;color:#475569;cursor:pointer;line-height:1}
+  .mini:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .mini.del:hover{background:var(--danger);border-color:var(--danger)}
+  .cart-item .amt{width:88px;text-align:right;font-weight:600;font-size:14px}
+  .empty{text-align:center;color:var(--muted);padding:38px 16px;font-size:14px}
+  .empty .ic{font-size:34px;display:block;margin-bottom:10px;opacity:.4}
+
+  .summary{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .sum-line{display:flex;justify-content:space-between;font-size:14px;margin-bottom:9px;color:#475569}
+  .sum-line.total{border-top:1px dashed #cbd5e1;padding-top:11px;margin-top:11px;margin-bottom:0;
+    font-size:19px;font-weight:700;color:var(--txt)}
+  .sum-line.total b{color:var(--primary)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#f8fafc;color:var(--muted);font-size:12.5px;font-weight:500}
+  td.r,th.r{text-align:right}
+  tbody tr:hover{background:#f8fafc}
+  .tag{padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:500;display:inline-block}
+  .t-ok{background:var(--success-bg);color:var(--success)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  .t-err{background:var(--danger-bg);color:var(--danger)}
+
+  /* ── Toast ── */
+  .toasts{position:fixed;top:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:10px}
+  .toast{display:flex;gap:12px;align-items:flex-start;background:#fff;border-left:4px solid;
+    border-radius:10px;padding:14px 18px;min-width:310px;max-width:390px;
+    box-shadow:0 10px 30px rgba(16,24,40,.14);animation:slideIn .28s ease}
+  @keyframes slideIn{from{transform:translateX(115%);opacity:0}to{transform:translateX(0);opacity:1}}
+  .toast.out{animation:slideOut .25s forwards}
+  @keyframes slideOut{to{transform:translateX(115%);opacity:0}}
+  .toast .ic{font-size:19px;line-height:1.2}
+  .toast b{display:block;font-size:14px;margin-bottom:3px}
+  .toast p{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .toast.ok{border-color:var(--success)} .toast.ok b{color:var(--success)}
+  .toast.warn{border-color:var(--warn)}  .toast.warn b{color:var(--warn)}
+  .toast.err{border-color:var(--danger)} .toast.err b{color:var(--danger)}
+
+  /* ── Modal ── */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:150;
+    display:none;align-items:center;justify-content:center;padding:20px}
+  .modal.show{display:flex}
+  .modal-box{background:#fff;border-radius:15px;width:100%;max-width:470px;max-height:92vh;
+    overflow-y:auto;animation:pop .24s ease}
+  @keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;
+    justify-content:space-between;align-items:center}
+  .modal-head h3{margin:0;font-size:17px}
+  .close-x{border:none;background:transparent;font-size:24px;color:var(--muted);cursor:pointer;line-height:1}
+  .modal-body{padding:22px 24px}
+  .modal-foot{padding:16px 24px 22px;display:flex;gap:10px}
+
+  .pay-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:18px}
+  .pay-opt{border:2px solid var(--line);background:#fff;border-radius:10px;padding:14px 8px;
+    text-align:center;cursor:pointer;transition:.16s;font-family:inherit}
+  .pay-opt:hover{border-color:#93c5fd}
+  .pay-opt.on{border-color:var(--primary);background:#eff6ff}
+  .pay-opt .ic{font-size:21px;display:block;margin-bottom:5px}
+  .pay-opt span{font-size:12.5px;font-weight:500;color:#334155}
+
+  /* ── ใบเสร็จ ── */
+  .receipt{background:#fff;border:1px dashed #cbd5e1;border-radius:10px;padding:22px;
+    font-family:'Noto Sans Thai',monospace;font-size:13px}
+  .rc-head{text-align:center;border-bottom:1px dashed #cbd5e1;padding-bottom:14px;margin-bottom:14px}
+  .rc-head h4{font-size:17px;font-weight:700;margin-bottom:3px}
+  .rc-head p{font-size:11.5px;color:var(--muted);line-height:1.6}
+  .rc-row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:12.5px}
+  .rc-items{border-top:1px dashed #cbd5e1;border-bottom:1px dashed #cbd5e1;padding:12px 0;margin:12px 0}
+  .rc-item{margin-bottom:9px}
+  .rc-item .t{display:flex;justify-content:space-between;font-weight:600;font-size:13px}
+  .rc-item .d{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .rc-total{display:flex;justify-content:space-between;font-size:16px;font-weight:700;
+    border-top:2px solid var(--txt);padding-top:10px;margin-top:10px}
+  .rc-foot{text-align:center;margin-top:16px;padding-top:14px;border-top:1px dashed #cbd5e1;
+    font-size:11.5px;color:var(--muted);line-height:1.7}
+  @media print{
+    body *{visibility:hidden}
+    #receiptArea,#receiptArea *{visibility:visible}
+    #receiptArea{position:absolute;left:0;top:0;width:100%;border:none}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <h2>AI Stock</h2>
+      <span>Sales Forecasting System</span>
+    </div>
+    <div class="sb-sep"></div>
+    <nav class="nav">
+      <a href="dashboard.html" class="nav-item"><span class="dot"></span>Dashboard</a>
+      <a href="product.html" class="nav-item"><span class="dot"></span>จัดการสินค้า</a>
+      <a href="categories.html" class="nav-item"><span class="dot"></span>หมวดหมู่สินค้า</a>
+      <a href="sales.html" class="nav-item active"><span class="dot"></span>การขาย</a>
+      <a href="forecast.html" class="nav-item"><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</a>
+    </nav>
+  </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <main class="main">
+    <div class="header">
+      <div style="display:flex;align-items:center;gap:14px">
+        <button class="hamb" id="hamb">☰</button>
+        <h1>บันทึกรายการขาย (POS)</h1>
+      </div>
+      <div class="user-chip">👤 ผู้ใช้งาน: admin</div>
+    </div>
+
+    <div class="content">
+      <div class="pos-grid">
+
+        <!-- ซ้าย : ทำรายการ -->
+        <div>
+          <div class="card" style="margin-bottom:22px">
+            <h3>ทำรายการขาย</h3>
+
+            <div class="field">
+              <label for="prodSel">เลือกสินค้า</label>
+              <select id="prodSel"></select>
+            </div>
+
+            <div class="field">
+              <label for="qtyInp">จำนวน</label>
+              <div class="qty-row">
+                <button class="qty-btn" id="minus">−</button>
+                <input type="number" id="qtyInp" value="1" min="1">
+                <button class="qty-btn" id="plus">+</button>
+              </div>
+            </div>
+
+            <div id="stockBox"></div>
+
+            <button class="btn btn-primary" id="addBtn">🛒 เพิ่มลงรายการ</button>
+          </div>
+
+          <div class="card">
+            <h3>สถานะสต็อกสินค้า <span class="sub">แจ้งเตือนอัตโนมัติ</span></h3>
+            <div style="max-height:320px;overflow-y:auto">
+              <table>
+                <thead><tr><th>สินค้า</th><th class="r">คงเหลือ</th><th class="r">สถานะ</th></tr></thead>
+                <tbody id="stockBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ขวา : ใบบันทึก + ประวัติ -->
+        <div>
+          <div class="card" style="margin-bottom:22px">
+            <h3>ใบบันทึกรายการสินค้า <span class="sub" id="billNo"></span></h3>
+            <div class="cart" id="cart"></div>
+            <div class="summary" id="summary"></div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-ghost btn-sm" id="clearBtn" style="flex:.65">ล้างรายการ</button>
+              <button class="btn btn-success" id="payBtn" style="flex:1.35">💳 ชำระเงิน</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>ประวัติการขายล่าสุด</h3>
+            <div style="max-height:300px;overflow-y:auto">
+              <table>
+                <thead><tr><th>เวลา</th><th>เลขที่บิล</th><th>รายการ</th><th class="r">จำนวน</th><th class="r">ราคารวม</th></tr></thead>
+                <tbody id="histBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL : ชำระเงิน -->
+<div class="modal" id="payModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>💳 ชำระเงิน</h3><button class="close-x" data-close="payModal">×</button></div>
+    <div class="modal-body">
+      <div class="summary" style="margin-bottom:18px">
+        <div class="sum-line"><span>จำนวนรายการ</span><b id="pmItems"></b></div>
+        <div class="sum-line"><span>ราคารวม</span><b id="pmSub"></b></div>
+        <div class="sum-line"><span>VAT 7%</span><b id="pmVat"></b></div>
+        <div class="sum-line total"><span>ยอดสุทธิ</span><b id="pmNet"></b></div>
+      </div>
+
+      <label>ช่องทางชำระเงิน</label>
+      <div class="pay-opts">
+        <button class="pay-opt on" data-pay="cash"><span class="ic">💵</span><span>เงินสด</span></button>
+        <button class="pay-opt" data-pay="transfer"><span class="ic">📱</span><span>โอน / QR</span></button>
+        <button class="pay-opt" data-pay="card"><span class="ic">💳</span><span>บัตรเครดิต</span></button>
+      </div>
+
+      <div id="cashArea">
+        <div class="field">
+          <label for="recvInp">รับเงินมา (บาท)</label>
+          <input type="number" id="recvInp" placeholder="0.00" min="0">
+        </div>
+        <div class="stock-box s-ok" style="margin-bottom:0">
+          <div class="line"><span>เงินทอน</span><b class="price-lg" id="changeTxt">฿0</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="payModal">ยกเลิก</button>
+      <button class="btn btn-success" id="confirmPay">✅ ยืนยันการชำระเงิน</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : ใบเสร็จ -->
+<div class="modal" id="rcModal">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-head"><h3>🧾 ใบเสร็จรับเงิน</h3><button class="close-x" data-close="rcModal">×</button></div>
+    <div class="modal-body"><div class="receipt" id="receiptArea"></div></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="rcModal">ปิด</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ พิมพ์ใบเสร็จ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* API ENDPOINTS */
+const API_PRODUCTS_URL = '/api/products';
+const API_SALES_URL = '/api/sales';
+
+/* DATA & STATE */
+let PRODUCTS = [];
+const LOW = 10, VAT = 0.07;
+let cart = [], history = [], payMethod = 'cash', lastBill = null;
+let billSeq = Number(String(Date.now()).slice(-4));
+
+const $ = id => document.getElementById(id);
+const baht = n => '฿' + Number(n).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+const now = () => new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+const prodById = id => PRODUCTS.find(p => p.id === id);
+const inCart = id => cart.find(c => c.id === id)?.qty || 0;
+const freeStock = id => {
+  const p = prodById(id);
+  return p ? p.stock - inCart(id) : 0;
+};
+const genBill = () => {
+  const d = new Date();
+  return `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(++billSeq).padStart(4,'0')}`;
+};
+
+function toast(type, title, msg){
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<span class="ic">${{ok:'✅',warn:'⚠️',err:'🚫'}[type]}</span>
+                <div><b>${title}</b><p>${msg}</p></div>`;
+  $('toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 250); }, 3600);
+}
+
+/* 📌 ดึงรายการสินค้าจาก Backend API */
+async function loadProductsFromAPI() {
+  try {
+    const res = await fetch(API_PRODUCTS_URL);
+    if (!res.ok) throw new Error('ไม่สามารถโหลดข้อมูลสินค้าได้');
+    
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.data || []);
+    
+    // แปลงข้อมูลตาม Structure จากฐานข้อมูล
+    PRODUCTS = list.map(p => ({
+      id: String(p.id || p.product_id),
+      name: p.product_name || p.name || 'ไม่มีชื่อสินค้า',
+      price: parseFloat(p.unit_price || p.price || 0),
+      stock: parseInt(p.stock || p.stock_quantity || p.quantity || 0)
+    }));
+
+    renderAll();
+    
+    // แจ้งเตือนสินค้าคงเหลือ
+    const outStockCount = PRODUCTS.filter(p => p.stock === 0).length;
+    const lowStockCount = PRODUCTS.filter(p => p.stock > 0 && p.stock < LOW).length;
+    if (outStockCount > 0 || lowStockCount > 0) {
+      toast('warn', 'ตรวจพบสินค้าต้องเติมสต็อก', `หมดสต็อก ${outStockCount} รายการ · ใกล้หมด ${lowStockCount} รายการ`);
+    }
+  } catch (err) {
+    console.error('API Error:', err);
+    toast('err', 'เกิดข้อผิดพลาดในการโหลดสินค้า', err.message);
+  }
+}
+
+/* 📌 ดึงประวัติการขายจาก Backend API */
+async function loadHistoryFromAPI() {
+  try {
+    const res = await fetch(API_SALES_URL);
+    if (!res.ok) return;
+    
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.data || []);
+    
+    history = list.map(h => ({
+      time: h.created_at ? new Date(h.created_at).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : (h.time || now()),
+      bill: h.bill_no || h.bill || h.id,
+      title: h.title || h.summary_name || `รายการขาย (${h.total_items || 1} ชิ้น)`,
+      qty: h.total_quantity || h.qty || 1,
+      total: parseFloat(h.net_total || h.total || 0)
+    }));
+
+    renderHistory();
+  } catch (err) {
+    console.error('History API Error:', err);
+  }
+}
+
+function fillProducts(){
+  if (!PRODUCTS.length) {
+    $('prodSel').innerHTML = '<option value="">-- ไม่พบรายการสินค้า --</option>';
+    return;
+  }
+  const keep = $('prodSel').value;
+  $('prodSel').innerHTML = PRODUCTS.map(p => {
+    const f = freeStock(p.id);
+    const tag = p.stock === 0 ? ' — ⛔ สินค้าหมด'
+              : f <= 0        ? ' — ⚠️ ในตะกร้าครบแล้ว'
+              : f < LOW       ? ` — ⚠️ ใกล้หมด (เหลือ ${f})`
+              : ` — คงเหลือ ${f}`;
+    return `<option value="${p.id}" ${p.stock===0?'disabled':''}>
+      ${p.name} (${baht(p.price)})${tag}</option>`;
+  }).join('');
+  if(keep && prodById(keep)?.stock > 0) $('prodSel').value = keep;
+}
+
+function checkStock(){
+  const selVal = $('prodSel').value;
+  const p = prodById(selVal);
+  const box = $('stockBox'), btn = $('addBtn');
+
+  if (!p) {
+    box.innerHTML = '';
+    btn.disabled = true;
+    btn.textContent = '⛔ กรุณาเลือกสินค้า';
+    return false;
+  }
+
+  const qty = Math.max(1, parseInt($('qtyInp').value) || 1);
+  const free = freeStock(p.id);
+
+  if(p.stock === 0){
+    box.innerHTML = `<div class="stock-box s-err">
+      <div class="title">🚫 สินค้าหมดสต็อก</div>
+      <div style="font-size:13px;line-height:1.6">
+        <b>${p.name}</b> ไม่มีสินค้าคงเหลือในระบบ<br>
+        กรุณาเติมสต็อกที่เมนู "จัดการสินค้า" ก่อนทำรายการขาย
+      </div></div>`;
+    btn.disabled = true; btn.textContent = '⛔ ไม่สามารถขายได้';
+    return false;
+  }
+
+  if(qty > free){
+    box.innerHTML = `<div class="stock-box s-err">
+      <div class="title">⚠️ สินค้าไม่เพียงพอ!</div>
+      <div class="line"><span>ต้องการ</span><b>${qty} ชิ้น</b></div>
+      <div class="line"><span>ขายได้สูงสุด</span><b>${free} ชิ้น</b></div>
+      <div class="line" style="border-top:1px dashed #fca5a5;padding-top:8px">
+        <span>ขาดอีก</span><b>${qty-free} ชิ้น</b></div>
+      ${inCart(p.id)?`<div style="font-size:12px;margin-top:8px;opacity:.85">
+        * มี ${inCart(p.id)} ชิ้นอยู่ในใบบันทึกรายการแล้ว</div>`:''}
+    </div>`;
+    btn.disabled = true; btn.textContent = '⛔ สินค้าไม่พอ';
+    return false;
+  }
+
+  const after = free - qty;
+  const cls = after < LOW ? 's-warn' : 's-ok';
+  box.innerHTML = `<div class="stock-box ${cls}">
+    <div class="line"><span>คงเหลือในสต็อก:</span><b>${p.stock} ชิ้น</b></div>
+    ${inCart(p.id)?`<div class="line"><span>อยู่ในใบบันทึกแล้ว:</span><b>${inCart(p.id)} ชิ้น</b></div>`:''}
+    <div class="line"><span>ราคารวมทั้งสิ้น:</span><b class="price-lg">${baht(p.price*qty)}</b></div>
+    ${after < LOW ?`<div class="line" style="border-top:1px dashed #fde68a;padding-top:8px">
+      <span>⚠️ หลังขายจะเหลือ</span><b>${after} ชิ้น — ควรเติมสต็อก</b></div>`:''}
+  </div>`;
+  btn.disabled = false; btn.textContent = '🛒 เพิ่มลงรายการ';
+  return true;
+}
+
+function addToCart(){
+  const p = prodById($('prodSel').value);
+  const qty = Math.max(1, parseInt($('qtyInp').value) || 1);
+  if(!p || !checkStock()){
+    if(p) toast('err', 'ไม่สามารถเพิ่มรายการได้', p.stock === 0 ? `${p.name} หมดสต็อก` : `${p.name} มีไม่พอ (เหลือ ${freeStock(p.id)} ชิ้น)`);
+    return;
+  }
+  const ex = cart.find(c => c.id === p.id);
+  if(ex) ex.qty += qty; else cart.push({id:p.id, name:p.name, price:p.price, qty});
+  toast('ok', 'เพิ่มลงใบบันทึกแล้ว', `${p.name} × ${qty} = ${baht(p.price*qty)}`);
+  if(freeStock(p.id) < LOW && freeStock(p.id) > 0)
+    toast('warn', 'สต็อกใกล้หมด', `${p.name} เหลือขายได้อีกเพียง ${freeStock(p.id)} ชิ้น`);
+  $('qtyInp').value = 1;
+  renderAll();
+}
+
+function changeQty(id, d){
+  const c = cart.find(x => x.id === id);
+  if(d > 0 && freeStock(id) <= 0){ toast('err', 'สต็อกไม่พอ', `${c.name} คงเหลือครบตามจำนวนแล้ว`); return; }
+  c.qty += d;
+  if(c.qty <= 0) cart = cart.filter(x => x.id !== id);
+  renderAll();
+}
+
+function removeItem(id){
+  const c = cart.find(x => x.id === id);
+  cart = cart.filter(x => x.id !== id);
+  toast('warn', 'ลบรายการแล้ว', c.name);
+  renderAll();
+}
+
+const subTotal = () => cart.reduce((s,c) => s + c.price * c.qty, 0);
+const vatAmt   = () => subTotal() * VAT;
+const netAmt   = () => subTotal() + vatAmt();
+
+function renderCart(){
+  $('billNo').textContent = cart.length ? `(${cart.length} รายการ)` : '';
+  $('cart').innerHTML = cart.length ? cart.map(c => `
+    <div class="cart-item">
+      <div class="nm"><b>${c.name}</b><span>${baht(c.price)} × ${c.qty} ชิ้น · คงเหลือ ${freeStock(c.id)}</span></div>
+      <button class="mini" onclick="changeQty('${c.id}',-1)">−</button>
+      <b style="min-width:26px;text-align:center">${c.qty}</b>
+      <button class="mini" onclick="changeQty('${c.id}',1)">+</button>
+      <span class="amt">${baht(c.price*c.qty)}</span>
+      <button class="mini del" onclick="removeItem('${c.id}')">×</button>
+    </div>`).join('')
+    : `<div class="empty"><span class="ic">🧾</span>ยังไม่มีรายการสินค้า<br>
+       <span style="font-size:12.5px">เลือกสินค้าทางซ้ายแล้วกด "เพิ่มลงรายการ"</span></div>`;
+
+  $('summary').innerHTML = `
+    <div class="sum-line"><span>จำนวนสินค้า</span><b>${cart.reduce((s,c) => s + c.qty, 0)} ชิ้น</b></div>
+    <div class="sum-line"><span>ราคารวม</span><b>${baht(subTotal())}</b></div>
+    <div class="sum-line"><span>VAT 7%</span><b>${baht(vatAmt())}</b></div>
+    <div class="sum-line total"><span>ยอดสุทธิ</span><b>${baht(netAmt())}</b></div>`;
+  $('payBtn').disabled = !cart.length;
+  $('clearBtn').disabled = !cart.length;
+}
+
+function renderStockTable(){
+  $('stockBody').innerHTML = PRODUCTS.length ? PRODUCTS.map(p => {
+    const f = freeStock(p.id);
+    const [t,c] = p.stock === 0 ? ['หมดสต็อก','t-err'] : f < LOW ? ['ใกล้หมด','t-warn'] : ['ปกติ','t-ok'];
+    return `<tr><td>${p.name}</td>
+      <td class="r"><b>${p.stock}</b> <span style="color:var(--muted);font-size:12px">ชิ้น</span></td>
+      <td class="r"><span class="tag ${c}">${t}</span></td></tr>`;
+  }).join('') : `<tr><td colspan="3" class="empty">ไม่มีข้อมูลสินค้า</td></tr>`;
+}
+
+function renderHistory(){
+  $('histBody').innerHTML = history.length ? history.slice(0,12).map(h => `
+    <tr><td style="color:var(--muted)">${h.time}</td>
+      <td style="font-size:12px;color:var(--primary)">${h.bill}</td>
+      <td><b>${h.title}</b></td><td class="r">${h.qty}</td><td class="r"><b>${baht(h.total)}</b></td></tr>`).join('')
+    : `<tr><td colspan="5" class="empty">ยังไม่มีประวัติการขาย</td></tr>`;
+}
+
+function renderAll(){ fillProducts(); checkStock(); renderCart(); renderStockTable(); renderHistory(); }
+
+function openPay(){
+  if(!cart.length){ toast('err', 'ไม่มีรายการสินค้า', 'กรุณาเพิ่มสินค้าก่อนชำระเงิน'); return; }
+  $('pmItems').textContent = cart.reduce((s,c) => s + c.qty, 0) + ' ชิ้น';
+  $('pmSub').textContent = baht(subTotal());
+  $('pmVat').textContent = baht(vatAmt());
+  $('pmNet').textContent = baht(netAmt());
+  $('recvInp').value = ''; $('changeTxt').textContent = '฿0.00';
+  $('payModal').classList.add('show');
+}
+
+$('recvInp').oninput = () => {
+  const ch = (parseFloat($('recvInp').value) || 0) - netAmt();
+  $('changeTxt').textContent = ch >= 0 ? baht(ch) : 'ไม่เพียงพอ';
+  $('changeTxt').style.color = ch >= 0 ? 'var(--primary)' : 'var(--danger)';
+};
+
+document.querySelectorAll('.pay-opt').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.pay-opt').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); payMethod = b.dataset.pay;
+  $('cashArea').style.display = payMethod === 'cash' ? '' : 'none';
+});
+
+/* 📌 ยืนยันชำระเงิน + บันทึกลง Backend API */
+async function confirmPay(){
+  const net = netAmt();
+  let recv = net;
+
+  if(payMethod === 'cash'){
+    recv = parseFloat($('recvInp').value) || 0;
+    if(recv < net){ toast('err', 'จำนวนเงินไม่เพียงพอ', `ต้องรับเงินอย่างน้อย ${baht(net)}`); return; }
+  }
+
+  const bad = cart.find(c => c.qty > prodById(c.id).stock);
+  if(bad){ toast('err', 'สต็อกไม่เพียงพอ', `${bad.name} เหลือ ${prodById(bad.id).stock} ชิ้น`); return; }
+
+  const bill = genBill(), time = now();
+  const payload = {
+    bill_no: bill,
+    payment_method: payMethod,
+    subtotal: subTotal(),
+    vat: vatAmt(),
+    net_total: net,
+    received_amount: recv,
+    change_amount: payMethod === 'cash' ? (recv - net) : 0,
+    items: cart.map(c => ({
+      product_id: c.id,
+      product_name: c.name,
+      unit_price: c.price,
+      quantity: c.qty,
+      total_price: c.price * c.qty
+    }))
+  };
+
+  try {
+    // บันทึกรายการลง DB
+    const response = await fetch(API_SALES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if(!response.ok) {
+      const errRes = await response.json().catch(() => ({}));
+      throw new Error(errRes.message || 'ไม่สามารถบันทึกรายการขายลงฐานข้อมูลได้');
+    }
+
+    // ตัดสต็อกสินค้าในหน้าจอ
+    cart.forEach(c => { prodById(c.id).stock -= c.qty; });
+
+    lastBill = {
+      bill, time, method: payMethod, items: [...cart],
+      sub: subTotal(), vat: vatAmt(), net,
+      recv: payload.received_amount,
+      change: payload.change_amount
+    };
+
+    history.unshift({
+      time, bill,
+      title: cart[0].name + (cart.length > 1 ? ` +${cart.length-1} รายการ` : ''),
+      qty: cart.reduce((s,c) => s + c.qty, 0),
+      total: net
+    });
+
+    toast('ok', 'ชำระเงินสำเร็จ', `${bill} · ${baht(net)}`);
+
+    cart = [];
+    $('payModal').classList.remove('show');
+    renderAll();
+    showReceipt();
+  } catch(error) {
+    toast('err', 'เกิดข้อผิดพลาดในการขาย', error.message);
+  }
+}
+
+function showReceipt(){
+  const b = lastBill;
+  const MTH = {cash:'เงินสด', transfer:'โอนเงิน / QR', card:'บัตรเครดิต'};
+  $('receiptArea').innerHTML = `
+    <div class="rc-head">
+      <h4>AI Stock</h4>
+      <p>Sales Forecasting System<br>
+      โทร. 02-000-0000 · เลขประจำตัวผู้เสียภาษี 0-0000-00000-00-0</p>
+    </div>
+    <div class="rc-row"><span>เลขที่ใบเสร็จ</span><b>${b.bill}</b></div>
+    <div class="rc-row"><span>วันที่</span><span>${new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'long',year:'numeric'})}</span></div>
+    <div class="rc-row"><span>เวลา</span><span>${b.time} น.</span></div>
+    <div class="rc-row"><span>พนักงานขาย</span><span>admin</span></div>
+
+    <div class="rc-items">
+      ${b.items.map(i => `<div class="rc-item">
+        <div class="t"><span>${i.name}</span><span>${baht(i.price*i.qty)}</span></div>
+        <div class="d">${baht(i.price)} × ${i.qty} ชิ้น</div></div>`).join('')}
+    </div>
+
+    <div class="rc-row"><span>ราคารวม</span><span>${baht(b.sub)}</span></div>
+    <div class="rc-row"><span>ภาษีมูลค่าเพิ่ม 7%</span><span>${baht(b.vat)}</span></div>
+    <div class="rc-total"><span>ยอดสุทธิ</span><span>${baht(b.net)}</span></div>
+
+    <div style="margin-top:12px">
+      <div class="rc-row"><span>ชำระโดย</span><b>${MTH[b.method]}</b></div>
+      ${b.method === 'cash' ? `
+        <div class="rc-row"><span>รับเงิน</span><span>${baht(b.recv)}</span></div>
+        <div class="rc-row"><span>เงินทอน</span><b>${baht(b.change)}</b></div>` : ''}
+    </div>
+
+    <div class="rc-foot">
+      *** ขอบคุณที่ใช้บริการ ***<br>
+      กรุณาเก็บใบเสร็จไว้เป็นหลักฐาน<br>
+      สินค้าที่ซื้อแล้วไม่รับเปลี่ยนหรือคืน
+    </div>`;
+  $('rcModal').classList.add('show');
+}
+
+/* EVENTS */
+$('prodSel').onchange = () => { $('qtyInp').value = 1; checkStock(); };
+$('qtyInp').oninput = checkStock;
+$('minus').onclick = () => { const v = parseInt($('qtyInp').value) || 1; if(v > 1){ $('qtyInp').value = v - 1; checkStock(); } };
+$('plus').onclick = () => { $('qtyInp').value = (parseInt($('qtyInp').value) || 0) + 1; checkStock(); };
+$('addBtn').onclick = addToCart;
+$('payBtn').onclick = openPay;
+$('confirmPay').onclick = confirmPay;
+$('clearBtn').onclick = () => { if(!cart.length) return; cart = []; toast('warn', 'ล้างรายการแล้ว', 'ใบบันทึกรายการถูกล้างทั้งหมด'); renderAll(); };
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => $(b.dataset.close).classList.remove('show'));
+document.querySelectorAll('.modal').forEach(m => m.onclick = e => { if(e.target === m) m.classList.remove('show'); });
+$('hamb').onclick = () => { $('sidebar').classList.add('open'); $('overlay').classList.add('show'); };
+$('overlay').onclick = () => { $('sidebar').classList.remove('open'); $('overlay').classList.remove('show'); };
+
+/* INITIAL LOAD FROM API */
+document.addEventListener('DOMContentLoaded', () => {
+  loadProductsFromAPI();
+  loadHistoryFromAPI();
+});
+</script>
+</body>
+</html>

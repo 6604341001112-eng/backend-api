@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consumables Sales Dashboard — 10 Categories</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #0F172A; 
+    --blue: #2563EB; 
+    --gray-bg: #F8FAFC; 
+    --gray-line: #E2E8F0; 
+    --gray-mid: #94A3B8; 
+    --gray-text: #475569;
+    --dark: #0F172A; 
+    --card: #FFFFFF; 
+    --primary: #2563EB; 
+    --forecast: #7C3AED;
+    --success: #16A34A; 
+    --danger: #DC2626; 
+    --warn: #D97706;
+    --radius: 14px;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans Thai', system-ui, sans-serif; background: #F1F5F9; color: var(--dark); }
+  
+  .shell { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 220px; background: var(--navy); color: #CBD5E1; flex-shrink: 0; padding: 22px 0; }
+  .sidebar .logo { padding: 0 20px 20px; color: #fff; font-weight: 700; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 14px; line-height: 1.4; }
+  .sidebar .logo span { display: block; font-size: 11px; font-weight: 400; color: var(--gray-mid); margin-top: 3px; }
+  .nav-item { 
+    padding: 12px 20px; font-size: 13.5px; display: flex; align-items: center; gap: 10px; 
+    border-left: 3px solid transparent; color: #94A3B8; text-decoration: none; transition: 0.2s;
+  }
+  .nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
+  .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #475569; flex-shrink: 0; }
+  .nav-item.on { background: rgba(37, 99, 235, .15); color: #fff; border-left-color: var(--blue); font-weight: 600; }
+  .nav-item.on .dot { background: var(--blue); }
+
+  /* Main Layout */
+  .main { flex: 1; min-width: 0; padding: 24px; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+
+  .topbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .topbar h1 { font-size: 24px; font-weight: 700; color: var(--dark); }
+  .topbar p { color: var(--gray-text); font-size: 13px; margin-top: 4px; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  
+  select, .btn { 
+    background: var(--card); color: var(--dark); border: 1px solid var(--gray-line);
+    padding: 9px 14px; border-radius: 10px; font-family: inherit; font-size: 13.5px; cursor: pointer; transition: .18s; outline: none;
+  }
+  .btn:hover, select:hover { border-color: var(--primary); }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 500; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+  .btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+
+  /* KPI Grid & Interactive Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi { 
+    background: var(--card); border: 1px solid var(--gray-line); border-radius: var(--radius); 
+    padding: 18px; position: relative; overflow: hidden; box-shadow: var(--shadow); 
+    cursor: pointer; transition: all 0.2s ease;
+  }
+  .kpi:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); border-color: var(--accent, var(--primary)); }
+  .kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, var(--primary)); }
+  .kpi .click-hint { position: absolute; right: 12px; top: 12px; font-size: 11px; color: var(--gray-mid); background: #F1F5F9; padding: 2px 7px; border-radius: 10px; opacity: 0.8; }
+  .kpi:hover .click-hint { background: var(--primary); color: #fff; opacity: 1; }
+  .kpi .label { color: var(--gray-text); font-size: 12.5px; margin-bottom: 6px; font-weight: 500; padding-right: 30px; }
+  .kpi .value { font-size: 22px; font-weight: 700; color: var(--dark); letter-spacing: -.3px; }
+  .kpi .value.sm { font-size: 15px; line-height: 1.35; }
+  .kpi .sub { font-size: 11.5px; margin-top: 6px; color: var(--gray-text); }
+  .up { color: var(--success); } .down { color: var(--danger); } .fc { color: var(--forecast); }
+
+  /* Toolbar & Filter Chips */
+  .toolrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .tabs { display: inline-flex; background: #E2E8F0; border-radius: 10px; padding: 4px; gap: 4px; }
+  .tab { border: none; background: transparent; color: var(--gray-text); font-family: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 18px; border-radius: 8px; cursor: pointer; transition: .18s; }
+  .tab.active { background: var(--card); color: var(--primary); box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  
+  .cat-select-box { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--gray-text); }
+
+  /* Scrollable Chips for 10 Categories */
+  .chips-container { position: relative; margin-bottom: 20px; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; }
+  .chips::-webkit-scrollbar { height: 6px; }
+  .chips::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+  
+  .chip { 
+    display: flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--gray-line);
+    color: var(--gray-text); padding: 8px 14px; border-radius: 20px; font-family: inherit; font-size: 13px; cursor: pointer; transition: .18s; white-space: nowrap; flex-shrink: 0;
+  }
+  .chip:hover { border-color: var(--cc, var(--primary)); color: var(--dark); }
+  .chip.active { background: var(--cc, var(--primary)); border-color: var(--cc, var(--primary)); color: #fff; font-weight: 600; box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+  .chip .amt { font-size: 11px; opacity: .85; margin-left: 2px; }
+
+  /* Item Picker Styles */
+  .item-picker { background: var(--card); border: 1px solid var(--gray-line); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; box-shadow: var(--shadow); }
+  .item-picker-top { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .item-search-box { position: relative; flex: 1; min-width: 260px; }
+  .item-search-box input { width: 100%; padding: 10px 14px 10px 36px; border: 1px solid var(--gray-line); border-radius: 10px; font-family: inherit; font-size: 13.5px; outline: none; transition: 0.18s; }
+  .item-search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .item-search-box .isb-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--gray-mid); }
+  .item-search-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid var(--gray-line); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 280px; overflow-y: auto; z-index: 100; display: none; }
+  .item-search-results.open { display: block; }
+  .item-picker-bottom { display: flex; align-items: center; gap: 10px; }
+  .ipb-label { font-size: 13px; font-weight: 600; color: var(--gray-text); white-space: nowrap; }
+
+  /* Layout Grids */
+  .grid-3 { display: grid; grid-template-columns: 1.8fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media(max-width: 1100px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border: 1px solid var(--gray-line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .card h3 { font-size: 15px; font-weight: 700; margin-bottom: 2px; color: var(--dark); }
+  .card .hint { font-size: 12px; color: var(--gray-text); margin-bottom: 14px; }
+  .chart-box { position: relative; height: 300px; }
+  .chart-box.tall { height: 330px; }
+
+  /* Tables */
+  .scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; border: 1px solid var(--gray-line); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
+  th, td { padding: 11px 13px; text-align: right; border-bottom: 1px solid var(--gray-line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--gray-text); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .3px; background: #F8FAFC; position: sticky; top: 0; z-index: 1; }
+  tbody tr:hover { background: rgba(37,99,235,.03); }
+  
+  .kpi-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+  .bar { width: 70px; height: 6px; background: #E2E8F0; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .bar i { display: block; height: 100%; border-radius: 4px; }
+  
+  tfoot td { font-weight: 700; border-top: 2px solid var(--gray-line); color: var(--dark); background: #F8FAFC; }
+  
+  .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
+
+  /* Sticky First Column for Pivot Table */
+  .pivot-table th:first-child, .pivot-table td:first-child { position: sticky; left: 0; background: #fff; z-index: 2; border-right: 2px solid var(--gray-line); }
+  .pivot-table th:first-child { background: #F8FAFC; z-index: 3; }
+
+  /* Pager */
+  .pager { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-top: 16px; }
+  .pager-info { color: var(--gray-text); font-size: 13px; }
+  .pages { display: flex; gap: 5px; }
+  .pg { min-width: 34px; height: 34px; border: 1px solid var(--gray-line); background: var(--card); color: var(--dark); border-radius: 8px; cursor: pointer; font-size: 13px; transition: .15s; font-weight: 500; }
+  .pg:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .pg.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+  .pg:disabled { opacity: .4; cursor: not-allowed; background: #f1f5f9; }
+
+  /* MODAL POPUP STYLES */
+  .modal-backdrop {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.55); display: none; align-items: center;
+    justify-content: center; z-index: 9999; padding: 20px; backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    background: #FFFFFF; width: 100%; max-width: 680px; max-height: 85vh;
+    border-radius: 18px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column; animation: popIn 0.22s ease-out;
+  }
+  @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid var(--gray-line); padding-bottom: 14px; }
+  .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--dark); }
+  .modal-header p { font-size: 12.5px; color: var(--gray-text); margin-top: 2px; }
+  .modal-close { background: #F1F5F9; border: none; font-size: 20px; color: var(--gray-text); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+  .modal-close:hover { background: #E2E8F0; color: var(--dark); }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-summary-box { display: flex; gap: 12px; background: #F8FAFC; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; border: 1px solid var(--gray-line); }
+  .modal-summary-item { flex: 1; }
+  .modal-summary-item .lbl { font-size: 11px; color: var(--gray-text); }
+  .modal-summary-item .val { font-size: 16px; font-weight: 700; color: var(--dark); }
+
+  /* Browse Cards */
+  .browse-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; border: 1px solid var(--gray-line); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: 0.18s; }
+  .browse-card:hover { border-color: var(--primary); background: #F8FAFC; }
+  .browse-card.picked { border-color: var(--primary); background: rgba(37,99,235,0.05); }
+  .bc-check { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--gray-line); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); flex-shrink: 0; }
+  .browse-card.picked .bc-check { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .bc-main { flex: 1; min-width: 0; }
+  .bc-name { font-weight: 600; font-size: 13.5px; color: var(--dark); }
+  .bc-price { font-size: 12px; color: var(--gray-text); margin-top: 2px; }
+  .bc-rev { text-align: right; flex-shrink: 0; }
+  .bc-rev .amt { font-weight: 700; color: var(--dark); font-size: 13.5px; }
+  .bc-rev .lbl { font-size: 11px; color: var(--gray-text); }
+  .browse-empty { text-align: center; padding: 30px; color: var(--gray-text); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">AI Stock<span>Sales Forecasting System</span></div>
+    <a href="dashboard.html" class="nav-item on"><span class="dot"></span>Dashboard</a>
+    <a href="product.html" class="nav-item"><span class="dot"></span>จัดการสินค้า</a>
+    <a href="categories.html" class="nav-item"><span class="dot"></span>หมวดหมู่สินค้า</a>
+    <a href="sales.html" class="nav-item"><span class="dot"></span>การขาย</a>
+    <a href="forecast.html" class="nav-item"><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</a>
+  </div>
+
+  <div class="main">
+    <div class="wrap">
+      
+      <!-- Topbar Controls -->
+      <div class="topbar">
+        <div>
+          <h1>แดชบอร์ดยอดขายสินค้าอุปโภคบริโภค</h1>
+          <p>ครอบคลุมสินค้าครบทั้ง 10 หมวดหมู่หลัก (คลิกการ์ด KPI เพื่อดูรายละเอียดสินค้า)
+            <span id="dataSource" class="badge" style="margin-left:6px;background:#F1F5F9;color:var(--gray-text)">กำลังโหลดข้อมูล...</span></p>
+        </div>
+        <div class="controls">
+          <select id="monthPicker"></select>
+          <select id="dayPicker"></select>
+          <select id="pageSize">
+            <option value="10">10 แถว/หน้า</option>
+            <option value="15">15 แถว/หน้า</option>
+            <option value="31">แสดงทั้งหมด</option>
+          </select>
+          <button class="btn btn-primary" onclick="window.print()">ส่งออกรายงาน</button>
+        </div>
+      </div>
+
+      <!-- KPI Summary (Clickable Cards) -->
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- Toolbar & Category Selectors -->
+      <div class="toolrow">
+        <div class="tabs">
+          <button class="tab active" data-mode="daily">รายวัน</button>
+          <button class="tab" data-mode="monthly">รายเดือน</button>
+        </div>
+
+        <div class="cat-select-box">
+          <span>เจาะลึกหมวดหมู่:</span>
+          <select id="catDropdown" style="min-width: 200px; font-weight:600; color:var(--primary);"></select>
+        </div>
+      </div>
+
+      <!-- Filter Chips (Horizontally Scrollable) -->
+      <div class="chips-container">
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <!-- Product-level Selector (item-picker) -->
+      <div class="item-picker" id="itemChipsContainer" style="display: none;">
+        <div class="item-picker-top">
+          <!-- ช่องค้นหาพร้อม Placeholder -->
+          <div class="item-search-box">
+            <span class="isb-icon">🔍</span>
+            <input type="text" id="itemSearchInput" placeholder="พิมพ์ชื่อสินค้าเพื่อค้นหาในหมวดนี้ เช่น ข้าวหอมมะลิ..." autocomplete="off">
+            <div class="item-search-results" id="itemSearchResults"></div>
+          </div>
+          
+          <!-- ปุ่มดูสินค้าทั้งหมดในหมวด -->
+          <button class="btn" id="browseAllBtn" onclick="openBrowseModal()">
+            📋 ดูสินค้าทั้งหมดในหมวดนี้ <span id="browseCountTag">(512 รายการ)</span>
+          </button>
+        </div>
+
+        <div class="item-picker-bottom">
+          <span class="ipb-label" id="itemPickerLabel">ยอดนิยม:</span>
+          <div class="chips" id="itemChips"></div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1 -->
+      <div class="grid-3">
+        <div class="card">
+          <h3 id="stackTitle">องค์ประกอบยอดขาย</h3>
+          <div class="hint" id="stackHint">สัดส่วนแยกตามหมวดหมู่/สินค้าในแต่ละช่วงเวลา</div>
+          <div class="chart-box tall"><canvas id="stackChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3 id="donutTitle">สัดส่วนหมวดหมู่</h3>
+          <div class="hint" id="donutHint">คำนวณจากยอดขายของช่วงที่เลือก</div>
+          <div class="chart-box tall"><canvas id="donutChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>อันดับสินค้าขายดี (Top 8)</h3>
+          <div class="hint" id="topHint">เรียงตามยอดขาย (บาท)</div>
+          <div class="chart-box tall"><canvas id="topChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tables Row 2 -->
+      <div class="grid-2">
+        <div class="card">
+          <h3 id="itemTitle">รายการสินค้าที่ขายได้</h3>
+          <div class="hint" id="itemHint">จัดกลุ่มแยกตามหมวดหมู่สินค้า</div>
+          <div class="scroll">
+            <table>
+              <thead><tr>
+                <th>สินค้า</th><th>ราคา/หน่วย</th><th>ขายได้</th><th>ยอดขาย</th><th>สัดส่วน</th><th>กราฟ</th>
+              </tr></thead>
+              <tbody id="itemBody"></tbody>
+              <tfoot id="itemFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 id="fcTitle">พยากรณ์ AI รายหมวด</h3>
+          <div class="hint" id="fcHint">วิเคราะห์แนวโน้มล่วงหน้า แยกครบทั้ง 10 หมวด</div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>หมวดหมู่</th><th>เฉลี่ยปัจจุบัน</th><th id="fcCol">คาดการณ์</th><th>แนวโน้ม</th></tr></thead>
+              <tbody id="fcBody"></tbody>
+              <tfoot id="fcFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Pivot Table Row 3 -->
+      <div class="card">
+        <h3 id="pivotTitle">ตารางเปรียบเทียบยอดขาย 10 หมวดหมู่</h3>
+        <div class="hint">เลื่อนซ้าย-ขวาเพื่อดูข้อมูลครบทั้ง 10 หมวดหมู่ (พร้อมตรึงคอลัมน์วันที่/เดือน)</div>
+        <div class="scroll">
+          <table class="pivot-table">
+            <thead><tr id="pivotHead"></tr></thead>
+            <tbody id="pivotBody"></tbody>
+            <tfoot id="pivotFoot"></tfoot>
+          </table>
+        </div>
+        <div class="pager">
+          <div class="pager-info" id="pagerInfo"></div>
+          <div class="pages" id="pages"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL POPUP HTML -->
+<div id="kpiModal" class="modal-backdrop" onclick="closeModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 id="modalTitle">รายละเอียดการขาย</h3>
+        <p id="modalSub">แสดงจำนวนสินค้าที่ขายได้และยอดขายสรุป</p>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    
+    <div id="modalSummary" class="modal-summary-box"></div>
+
+    <div class="modal-body">
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ชื่อสินค้า</th>
+              <th>หมวดหมู่</th>
+              <th>ราคา/หน่วย</th>
+              <th>ขายได้ (ชิ้น)</th>
+              <th>ยอดขายรวม</th>
+            </tr>
+          </thead>
+          <tbody id="modalTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BROWSE ALL PRODUCTS MODAL -->
+<div id="browseModal" class="modal-backdrop" onclick="closeBrowseModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 id="browseTitle">สินค้าทั้งหมดในหมวด</h3>
+        <p id="browseSub">ค้นหาและเลือกสินค้าเพื่อดูเจาะจงรายตัว</p>
+      </div>
+      <button class="modal-close" onclick="closeBrowseModal()">&times;</button>
+    </div>
+
+    <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <select id="browseCatSelect" style="min-width:220px; font-weight:600; color:var(--primary);"></select>
+      <input type="text" id="browseSearchInput" placeholder="พิมพ์ชื่อสินค้า..."
+             style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--gray-line); border-radius:8px; font-family:inherit; outline:none;">
+    </div>
+
+    <div id="browseSelectedBar" style="display:none; align-items:center; justify-content:space-between; background:rgba(37,99,235,0.08); padding:8px 12px; border-radius:8px; margin-bottom:12px; font-size:12.5px; color:var(--primary); font-weight:600;">
+      <span id="browseSelectedCount">เลือกไว้ 0 รายการ</span>
+      <span id="browseClearBtn" style="cursor:pointer; text-decoration:underline;">ล้างรายการที่เลือก</span>
+    </div>
+
+    <div class="modal-body" id="browseListBody"></div>
+
+    <div class="pager" style="margin-top:12px;">
+      <div class="pager-info" id="browsePagerInfo"></div>
+      <div class="pages" id="browsePages"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ข้อมูลสินค้าทั้งหมด 5,120 รายการ (วางไฟล์ไว้โฟลเดอร์เดียวกับ dashboard.html) -->
+<script src="products-data.js"></script>
+<script>
+/* ═════════ 1) MASTER DATA & CONFIG ═════════ */
+const MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const MSHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const DOW    = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+
+/* หมวดหมู่ตรงกับตาราง category ในฐานข้อมูล (category_id 1–10) */
+const CATS = [
+  {id:'1',  name:'ข้าว แป้ง เส้น',            icon:'🌾', h:45},
+  {id:'2',  name:'เครื่องปรุงรส',             icon:'🍾', h:10},
+  {id:'3',  name:'อาหารกระป๋องและแปรรูป',     icon:'🥫', h:340},
+  {id:'4',  name:'อาหารกึ่งสำเร็จรูป',        icon:'🍜', h:275},
+  {id:'5',  name:'ขนมขบเคี้ยว',              icon:'🍿', h:320},
+  {id:'6',  name:'เครื่องดื่มไม่มีแอลกอฮอล์', icon:'🥤', h:205},
+  {id:'7',  name:'นมและผลิตภัณฑ์นม',         icon:'🥛', h:185},
+  {id:'8',  name:'กาแฟ ชา เครื่องดื่มชง',     icon:'☕', h:95},
+  {id:'9',  name:'ของสด (เนื้อ ผัก ผลไม้)',   icon:'🥬', h:140},
+  {id:'10', name:'ของแช่แข็งและเบเกอรี่',     icon:'🧊', h:250}
+];
+
+const CATMAP = Object.fromEntries(CATS.map(c => [c.id, c]));
+const CAT_BY_NAME = Object.fromEntries(CATS.map(c => [c.name.replace(/\s+/g, ''), c.id]));
+const catColor = c => `hsl(${c ? c.h : 0}, 75%, 48%)`; 
+const itemColor = (c, k) => `hsl(${c ? c.h : 0}, ${Math.max(30, 70 - k * 4)}%, ${Math.min(78, 50 + k * 2)}%)`;
+
+const MULT = {
+  '1': [0.95, 1.1], '2': [0.9, 1.15], '3': [0.9, 1.1], '4': [1.0, 1.2], '5': [1.1, 1.3],
+  '6': [1.0, 1.25], '7': [0.95, 1.15], '8': [1.0, 1.2], '9': [0.85, 1.05], '10': [0.9, 1.1]
+};
+
+const daysIn = m => new Date(2026, m + 1, 0).getDate();
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+/* ข้อมูลสำรอง (ใช้เมื่อไม่มี backend) */
+let MENU = [
+  { id: 'p1',  name: 'ข้าวหอมมะลิ 5 กก.',           cat: '1',  price: 195, base: 15 },
+  { id: 'p2',  name: 'ซีอิ๊วขาว 1,000 มล.',          cat: '2',  price: 48,  base: 25 },
+  { id: 'p3',  name: 'ปลากระป๋อง 155 กรัม',          cat: '3',  price: 32,  base: 30 },
+  { id: 'p4',  name: 'บะหมี่กึ่งสำเร็จรูป แพ็ค 10',  cat: '4',  price: 65,  base: 40 },
+  { id: 'p5',  name: 'มันฝรั่งทอดกรอบ XL',           cat: '5',  price: 30,  base: 50 },
+  { id: 'p6',  name: 'น้ำอัดลม 1.25 ลิตร',           cat: '6',  price: 28,  base: 35 },
+  { id: 'p7',  name: 'นมพาสเจอร์ไรส์ 1 ลิตร',        cat: '7',  price: 55,  base: 20 },
+  { id: 'p8',  name: 'กาแฟสำเร็จรูป 180 กรัม',       cat: '8',  price: 120, base: 30 },
+  { id: 'p9',  name: 'หมูสไลซ์ 500 กรัม',            cat: '9',  price: 110, base: 18 },
+  { id: 'p10', name: 'นักเก็ตไก่แช่แข็ง 500g',       cat: '10', price: 89,  base: 12 }
+];
+let SALES = [];
+
+/* ═════════ 2) STATE & HELPERS ═════════ */
+const state = {
+  mode: 'daily',  // 'daily' หรือ 'monthly'
+  month: 0,        // 0 = มกราคม
+  day: 0,          // วันที่ 0 (คือวันที่ 1)
+  cat: 'all',      // หมวดหมู่ที่เลือก
+  items: [],       // สินค้าที่เลือกเจาะจง
+  page: 1,         // หน้าปัจจุบันของตาราง
+  size: 10         // แถวต่อหน้า
+};
+
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('th-TH');
+const baht = n => '฿' + Math.round(n).toLocaleString('th-TH');
+const sumRev = l => l.reduce((s, x) => s + (Number(x.rev) || 0), 0);
+const sumQty = l => l.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+
+function generateSalesData() {
+  SALES = MONTHS.map((_, m) =>
+    Array.from({ length: daysIn(m) }, (_, d) => {
+      const dow = new Date(2026, m, d + 1).getDay();
+      const rec = {};
+      const isWeekend = dow === 0 || dow === 6 ? 1.2 : 1.0;
+      
+      MENU.forEach(it => {
+        const catKey = String(it.cat);
+        const mInfo = MULT[catKey] || [0.9, 1.1];
+        rec[String(it.id)] = Math.max(0, Math.round(it.base * isWeekend * rnd(mInfo[0], mInfo[1])));
+      });
+      return rec;
+    })
+  );
+}
+
+/* ═════════ 3) DATA HELPERS & MATRIX ═════════ */
+function dayItems(m, d) {
+  if (!SALES[m] || !SALES[m][d]) return [];
+  const r = SALES[m][d];
+  return MENU.map(it => {
+    const q = Number(r[String(it.id)] ?? r[it.id]) || 0;
+    const p = Number(it.price) || 0;
+    return { it, qty: q, rev: q * p };
+  });
+}
+
+function monthItems(m) {
+  if (!SALES[m]) return [];
+  const agg = {}; 
+  MENU.forEach(it => agg[String(it.id)] = 0);
+  
+  SALES[m].forEach(r => {
+    MENU.forEach(it => {
+      const q = Number(r[String(it.id)] ?? r[it.id]) || 0;
+      agg[String(it.id)] += q;
+    });
+  });
+  
+  return MENU.map(it => {
+    const q = agg[String(it.id)] || 0;
+    const p = Number(it.price) || 0;
+    return { it, qty: q, rev: q * p };
+  });
+}
+
+function scopeItems() {
+  return state.mode === 'daily' 
+    ? dayItems(state.month, state.day) 
+    : monthItems(state.month);
+}
+
+function filterCat(items) {
+  if (!items || !Array.isArray(items)) return [];
+  let res = items;
+  
+  if (state.cat !== 'all') {
+    res = res.filter(x => {
+      if (!x) return false;
+      const itemCat = String(x.it ? x.it.cat : x.cat || '');
+      return itemCat === String(state.cat);
+    });
+  }
+  
+  if (state.items && state.items.length > 0) {
+    const selectedIds = new Set(state.items.map(id => String(id)));
+    res = res.filter(x => {
+      if (!x) return false;
+      const itemId = String(x.it ? x.it.id : x.id || '');
+      return selectedIds.has(itemId);
+    });
+  }
+  
+  return res;
+}
+
+function activeCats() {
+  if (state.cat === 'all') return CATS;
+  return CATS.filter(c => c.id === state.cat);
+}
+
+function scopeName() {
+  if (state.mode === 'daily') {
+    return `${state.day + 1} ${MONTHS[state.month]} 2569`;
+  }
+  return `${MONTHS[state.month]} 2569`;
+}
+
+function selectItem(itemId) {
+  const targetId = String(itemId);
+  const found = MENU.find(i => String(i.id) === targetId);
+  if (found) state.cat = found.cat;
+  state.items = [targetId];
+  state.page = 1;
+  renderAll();
+}
+
+function toggleItem(itemId) {
+  const targetId = String(itemId);
+  const idx = state.items.map(id => String(id)).indexOf(targetId);
+  if (idx > -1) {
+    state.items.splice(idx, 1);
+  } else {
+    state.items.push(targetId);
+  }
+  state.page = 1;
+  renderAll();
+}
+
+function clearItems() {
+  state.items = [];
+  renderAll();
+}
+
+function hideItemSearchResults() {
+  const resultsBox = $('itemSearchResults');
+  if (resultsBox) {
+    resultsBox.classList.remove('open');
+    resultsBox.innerHTML = '';
+  }
+}
+
+let MATRIX = [];
+function buildMatrix() {
+  if (!MENU.length) return;
+  const n = state.mode === 'daily' ? daysIn(state.month) : 12;
+  
+  MATRIX = Array.from({ length: n }, (_, i) => {
+    const list = state.mode === 'daily' ? dayItems(state.month, i) : monthItems(i);
+    const filteredList = filterCat(list);
+    
+    const byItem = {};
+    const byCat = {}; 
+    CATS.forEach(c => byCat[c.id] = 0);
+    
+    filteredList.forEach(x => { 
+      if (x && x.it) {
+        byItem[x.it.id] = x.rev || 0; 
+        byCat[x.it.cat] = (byCat[x.it.cat] || 0) + (x.rev || 0); 
+      }
+    });
+
+    const rowTotalRev = filteredList.reduce((s, x) => s + (Number(x.rev) || 0), 0);
+    const rowTotalQty = filteredList.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+
+    const pool = filteredList.length > 0 ? filteredList : list;
+    const best = pool.reduce((a, b) => (b.rev > a.rev ? b : a), pool[0] || { it: MENU[0] || {name:'—', cat:'1'}, qty: 0 });
+
+    return {
+      label: state.mode === 'daily' ? `${i + 1} ${MSHORT[state.month]}` : MONTHS[i],
+      dow: state.mode === 'daily' ? DOW[new Date(2026, state.month, i + 1).getDay()] : '',
+      byItem, 
+      byCat, 
+      qty: rowTotalQty,
+      total: rowTotalRev,
+      best: { name: best.it?.name || '—', cat: best.it?.cat || '', qty: best.qty || 0 }
+    };
+  });
+}
+
+/* ═════════ 4) MODAL POPUP HANDLER (KPI) ═════════ */
+function openKpiModal(type) {
+  const list = filterCat(scopeItems()).filter(x => x.qty > 0);
+  let title = "", sub = "", itemsToShow = [];
+
+  if (type === 'total') {
+    title = `รายการสินค้าทั้งหมด · ${scopeName()}`;
+    sub = `แสดงรายละเอียดสินค้าทุกรายการที่ขายได้ใน${state.mode === 'daily' ? 'วันนี้' : 'เดือนนี้'}`;
+    itemsToShow = [...list].sort((a, b) => b.rev - a.rev);
+  } 
+  else if (type === 'compare') {
+    title = `เปรียบเทียบและอันดับยอดขาย · ${scopeName()}`;
+    sub = `เรียงลำดับสินค้าตามยอดขายสูงสุดประจำช่วงเวลา`;
+    itemsToShow = [...list].sort((a, b) => b.rev - a.rev);
+  }
+  else if (type === 'qty') {
+    title = `จำนวนชิ้นที่ขายได้แยกตามสินค้า · ${scopeName()}`;
+    sub = `เรียงลำดับสินค้าที่ขายได้จำนวนชิ้นมากที่สุดไปหาน้อยที่สุด`;
+    itemsToShow = [...list].sort((a, b) => b.qty - a.qty);
+  }
+  else if (type === 'topCat') {
+    const catSum = CATS.map(c => ({ c, v: list.filter(x => x.it.cat === c.id).reduce((s, x) => s + x.rev, 0) }))
+      .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+    const topCat = catSum[0]?.c;
+    
+    if (topCat) {
+      title = `สินค้าในหมวดหมู่ขายดีอันดับ 1: ${topCat.icon} ${topCat.name}`;
+      sub = `เจาะลึกเฉพาะสินค้าภายในหมวด ${topCat.name} ที่ขายได้ช่วง ${scopeName()}`;
+      itemsToShow = list.filter(x => x.it.cat === topCat.id).sort((a, b) => b.qty - a.qty);
+    } else {
+      title = "หมวดหมู่ขายดี";
+      sub = "ไม่มีข้อมูล";
+      itemsToShow = [];
+    }
+  }
+  else if (type === 'topItem') {
+    title = `อันดับสินค้าขายดี (Top Best Sellers)`;
+    sub = `รายการสินค้าที่ทำยอดขายสูงสุดประจำ ${scopeName()}`;
+    itemsToShow = [...list].sort((a, b) => b.rev - a.rev).slice(0, 5);
+  }
+
+  const mRev = sumRev(itemsToShow);
+  const mQty = sumQty(itemsToShow);
+  if ($('modalSummary')) {$('modalSummary').innerHTML = `
+      <div class="modal-summary-item"><div class="lbl">จำนวนรายการ</div><div class="val">${itemsToShow.length.toLocaleString()} รายการ</div></div>
+      <div class="modal-summary-item"><div class="lbl">ขายได้รวม</div><div class="val" style="color:var(--primary)">${fmt(mQty)} ชิ้น</div></div>
+      <div class="modal-summary-item"><div class="lbl">ยอดขายรวม</div><div class="val" style="color:var(--success)">${baht(mRev)}</div></div>
+    `;
+  }
+
+  if ($('modalTitle'))$('modalTitle').textContent = title;
+  if ($('modalSub'))$('modalSub').textContent = sub;
+
+  const tbody = $('modalTableBody');
+  if (tbody) {
+    if (itemsToShow.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--gray-text)">ไม่มีข้อมูลการขายในช่วงนี้</td></tr>`;
+    } else {
+      tbody.innerHTML = itemsToShow.map((x, idx) => {
+        const c = CATMAP[x.it.cat] || { icon:'📦', name:'ทั่วไป', h:0 };
+        return `
+          <tr>
+            <td style="text-align:center;font-weight:600;color:var(--gray-text)">${idx + 1}</td>
+            <td style="font-weight:600;text-align:left"><span class="kpi-dot" style="background:${catColor(c)}"></span>${x.it.name}</td>
+            <td style="text-align:left"><span class="badge" style="background:${catColor(c)}15;color:${catColor(c)}">${c.icon} ${c.name}</span></td>
+            <td style="color:var(--gray-text)">${baht(x.it.price)}</td>
+            <td style="font-weight:700;color:var(--primary);font-size:14px">${fmt(x.qty)} ชิ้น</td>
+            <td style="font-weight:700;color:var(--dark)">${baht(x.rev)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  if ($('kpiModal'))$('kpiModal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target.classList.contains('modal-backdrop') || e.target.classList.contains('modal-close')) {
+    if ($('kpiModal'))$('kpiModal').classList.remove('open');
+  }
+}
+
+/* ═════════ 5) BROWSE / SELECT ITEM MODAL ═════════ */
+let browseState = { page: 1, size: 20, query: '', cat: 'all' };
+
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, ch =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+/* สินค้าที่ผ่านตัวกรอง "หมวดหมู่ + คำค้น" ของ modal นี้ */
+function browseFilteredItems() {
+  const q = browseState.query;
+  return MENU.filter(it => {
+    if (browseState.cat !== 'all' && String(it.cat) !== String(browseState.cat)) return false;
+    if (!q) return true;
+    return String(it.name).toLowerCase().includes(q) || String(it.id).toLowerCase().includes(q);
+  });
+}
+
+function openBrowseModal(prefillQuery = '') {
+  browseState = { page: 1, size: 20, query: String(prefillQuery || '').trim().toLowerCase(), cat: state.cat };
+
+  // ตัวเลือกหมวดหมู่ พร้อมจำนวนสินค้าจริงของแต่ละหมวด
+  const counts = {};
+  MENU.forEach(it => { counts[it.cat] = (counts[it.cat] || 0) + 1; });
+
+  const sel = $('browseCatSelect');
+  if (sel) {
+    sel.innerHTML =
+      `<option value="all">📊 ทุกหมวดหมู่ (${MENU.length.toLocaleString('th-TH')} รายการ)</option>` +
+      CATS.map(c => `<option value="${c.id}">${c.icon} ${c.name} (${(counts[c.id] || 0).toLocaleString('th-TH')})</option>`).join('');
+    sel.value = browseState.cat;
+    sel.onchange = () => {
+      browseState.cat = sel.value;
+      browseState.page = 1;
+      // sync กับหน้า dashboard (เหมือนการกดชิปหมวดหมู่)
+      state.cat = sel.value;
+      state.items = [];
+      state.page = 1;
+      renderAll();
+      renderBrowseList();
+    };
+  }
+
+  const input = $('browseSearchInput');
+  if (input) {
+    input.value = String(prefillQuery || '').trim();
+    input.oninput = () => {
+      browseState.query = input.value.trim().toLowerCase();
+      browseState.page = 1;
+      renderBrowseList();
+    };
+  }
+
+  const clearBtn = $('browseClearBtn');
+  if (clearBtn) clearBtn.onclick = () => { clearItems(); renderBrowseList(); };
+
+  renderBrowseList();
+  $('browseModal')?.classList.add('open');
+}
+
+function closeBrowseModal() {
+  $('browseModal')?.classList.remove('open');
+}
+
+function renderBrowseList() {
+  const body = $('browseListBody');
+  if (!body) return;
+
+  // 1) กรอง + เรียงตามยอดขายในช่วงที่เลือก (สร้าง Map ครั้งเดียว ไม่ใช้ find ซ้ำ)
+  const statMap = new Map();
+  scopeItems().forEach(x => { if (x && x.it) statMap.set(String(x.it.id), x); });
+  const statOf = it => statMap.get(String(it.id)) || { qty: 0, rev: 0 };
+
+  const items = browseFilteredItems().sort((a, b) => statOf(b).rev - statOf(a).rev);
+
+  // 2) แบ่งหน้า
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / browseState.size));
+  browseState.page = Math.min(Math.max(1, browseState.page), totalPages);
+  const start = (browseState.page - 1) * browseState.size;
+  const pageItems = items.slice(start, start + browseState.size);
+
+  // 3) หัวข้อ
+  const cur = CATMAP[browseState.cat];
+  if ($('browseTitle')) $('browseTitle').textContent = cur
+    ? `${cur.icon} สินค้าในหมวด ${cur.name}`
+    : '📋 สินค้าทั้งหมดทุกหมวดหมู่';
+  if ($('browseSub')) $('browseSub').textContent =
+    `พบ ${total.toLocaleString('th-TH')} รายการ · ยอดขาย ${scopeName()} · คลิกเพื่อเลือกดูเจาะจงรายตัว`;
+
+  // 4) รายการสินค้า
+  const selected = new Set(state.items.map(String));
+  body.innerHTML = pageItems.length === 0
+    ? `<div class="browse-empty">ไม่พบสินค้าที่ตรงกับเงื่อนไข</div>`
+    : pageItems.map(it => {
+        const c = CATMAP[it.cat] || { icon: '📦', name: 'ทั่วไป' };
+        const s = statOf(it);
+        const on = selected.has(String(it.id));
+        return `
+          <div class="browse-card ${on ? 'picked' : ''}" onclick="browseToggle('${escHtml(it.id)}')">
+            <div class="bc-check">${on ? '✓' : ''}</div>
+            <div class="bc-main">
+              <div class="bc-name">${escHtml(it.name)}</div>
+              <div class="bc-price">${c.icon} ${escHtml(c.name)} · ${baht(it.price)} / ชิ้น</div>
+            </div>
+            <div class="bc-rev">
+              <div class="amt">${baht(s.rev)}</div>
+              <div class="lbl">${fmt(s.qty)} ชิ้น</div>
+            </div>
+          </div>`;
+      }).join('');
+
+  // 5) แถบ "เลือกไว้ N รายการ"
+  const bar = $('browseSelectedBar');
+  if (bar) {
+    bar.style.display = state.items.length ? 'flex' : 'none';
+    if ($('browseSelectedCount')) $('browseSelectedCount').textContent = `เลือกไว้ ${state.items.length} รายการ`;
+  }
+
+  // 6) ตัวแบ่งหน้า (แสดงเฉพาะหน้าใกล้เคียง เพราะบางหมวดมีหลายร้อยรายการ)
+  if ($('browsePagerInfo')) $('browsePagerInfo').textContent = total
+    ? `แสดง ${start + 1}–${Math.min(start + browseState.size, total)} จาก ${total.toLocaleString('th-TH')} รายการ`
+    : 'ไม่พบรายการ';
+
+  const p = browseState.page;
+  const win = [...new Set([1, p - 1, p, p + 1, totalPages])].filter(n => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+  let btns = `<button class="pg" ${p === 1 ? 'disabled' : ''} onclick="changeBrowsePage(${p - 1})">❮</button>`;
+  let last = 0;
+  win.forEach(n => {
+    if (last && n - last > 1) btns += `<span style="align-self:center;color:var(--gray-mid)">…</span>`;
+    btns += `<button class="pg ${n === p ? 'active' : ''}" onclick="changeBrowsePage(${n})">${n}</button>`;
+    last = n;
+  });
+  btns += `<button class="pg" ${p === totalPages ? 'disabled' : ''} onclick="changeBrowsePage(${p + 1})">❯</button>`;
+  if ($('browsePages')) $('browsePages').innerHTML = btns;
+}
+
+function changeBrowsePage(n) {
+  browseState.page = n;
+  renderBrowseList();
+  if ($('browseListBody')) $('browseListBody').scrollTop = 0;
+}
+
+function browseToggle(id) {
+  toggleItem(id);       // อัปเดต state.items + วาด dashboard ใหม่
+  renderBrowseList();   // อัปเดตรายการใน modal
+}
+
+/* กด Esc เพื่อปิด popup ทั้งสองแบบ */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeBrowseModal(); closeModal(); }
+});
+
+/* ═════════ 6) RENDER KPI ═════════ */
+function renderKPI() {
+  const kpiGrid = $('kpiGrid');
+  if (!kpiGrid) return;
+
+  const list = filterCat(scopeItems()).filter(x => x.qty > 0);
+  const total = sumRev(list), qty = sumQty(list);
+
+  let prev = null;
+  if (state.mode === 'daily') {
+    if (state.day > 0) prev = sumRev(filterCat(dayItems(state.month, state.day - 1)));
+    else if (state.month > 0) prev = sumRev(filterCat(dayItems(state.month - 1, daysIn(state.month - 1) - 1)));
+  } else if (state.month > 0) prev = sumRev(filterCat(monthItems(state.month - 1)));
+  const diff = prev ? (total - prev) / prev * 100 : null;
+
+  const catSum = CATS.map(c => ({ c, v: list.filter(x => x.it.cat === c.id).reduce((s, x) => s + x.rev, 0) }))
+    .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  const topCat = catSum[0];
+  const topItem = [...list].sort((a, b) => b.rev - a.rev)[0];
+
+  kpiGrid.innerHTML = `
+    <div class="kpi" style="--accent:var(--primary)" onclick="openKpiModal('total')">
+      <span class="click-hint">คลิกดู 🔍</span>
+      <div class="label">ยอดขายรวม · ${scopeName()}</div>
+      <div class="value">${baht(total)}</div>
+      <div class="sub">${state.cat === 'all' ? 'รวมสินค้าทั้งหมดในระบบ' : CATMAP[state.cat]?.name}</div></div>
+
+    <div class="kpi" style="--accent:${diff == null ? 'var(--gray-mid)' : diff >= 0 ? 'var(--success)' : 'var(--danger)'}" onclick="openKpiModal('compare')">
+      <span class="click-hint">คลิกดู 🔍</span>
+      <div class="label">เทียบ${state.mode === 'daily' ? 'วันก่อน' : 'เดือนก่อน'}</div>
+      <div class="value ${diff >= 0 ? 'up' : 'down'}">${diff == null ? '—' : (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + '%'}</div>
+      <div class="sub">${prev ? baht(prev) : 'ไม่มีข้อมูลเปรียบเทียบ'}</div></div>
+
+    <div class="kpi" style="--accent:var(--warn)" onclick="openKpiModal('qty')">
+      <span class="click-hint">คลิกดู 🔍</span>
+      <div class="label">ปริมาณขายได้รวม</div>
+      <div class="value">${fmt(qty)} <span style="font-size:13px;color:var(--gray-text);font-weight:400;">ชิ้น</span></div>
+      <div class="sub">เฉลี่ย ${baht(qty ? total / qty : 0)} / ชิ้น</div></div>
+
+    <div class="kpi" style="--accent:${topCat ? catColor(topCat.c) : 'var(--primary)'}" onclick="openKpiModal('topCat')">
+      <span class="click-hint">คลิกดู 🔍</span>
+      <div class="label">หมวดหมู่ขายดีอันดับ 1</div>
+      <div class="value sm">${topCat ? topCat.c.icon + ' ' + topCat.c.name : '—'}</div>
+      <div class="sub">${topCat ? baht(topCat.v) + ' (' + (total ? (topCat.v / total * 100).toFixed(1) : 0) + '%)' : ''}</div></div>
+
+    <div class="kpi" style="--accent:var(--forecast)" onclick="openKpiModal('topItem')">
+      <span class="click-hint">คลิกดู 🔍</span>
+      <div class="label">สินค้าขายดีอันดับ 1</div>
+      <div class="value sm">${topItem ? topItem.it.name : '—'}</div>
+      <div class="sub">${topItem ? fmt(topItem.qty) + ' ชิ้น · ' + baht(topItem.rev) : ''}</div></div>`;
+}
+
+/* ═════════ 7) CHIPS & DROPDOWN ═════════ */
+function selectCategory(catId) {
+  state.cat = catId;
+  state.items = [];
+  renderAll();
+}
+
+function renderCatSelectors() {
+  const catDropdown = $('catDropdown');
+  const chips = $('chips');
+  const list = scopeItems();
+  const all = sumRev(list);
+
+  if (catDropdown) {
+    let optHtml = `<option value="all">📊 แสดงทุกหมวดหมู่ (${MENU.length.toLocaleString()} รายการ)</option>`;
+    CATS.forEach(c => {
+      optHtml += `<option value="${c.id}" ${state.cat === c.id ? 'selected' : ''}>${c.icon} ${c.name}</option>`;
+    });
+    catDropdown.innerHTML = optHtml;
+    catDropdown.value = state.cat;
+  }
+
+  if (chips) {
+    // รวมยอดขายต่อหมวดครั้งเดียว (แทนการ filter ซ้ำทุกหมวด)
+    const revByCat = {};
+    list.forEach(x => { if (x && x.it) revByCat[x.it.cat] = (revByCat[x.it.cat] || 0) + x.rev; });
+
+    let chipHtml = `<button class="chip ${state.cat === 'all' ? 'active' : ''}" data-cat="all" style="--cc:var(--primary)">
+                      <span>📊 ทั้งหมด</span><span class="amt">${baht(all)}</span></button>`;
+    CATS.forEach(c => {
+      const v = revByCat[c.id] || 0;
+      chipHtml += `<button class="chip ${state.cat === c.id ? 'active' : ''}" data-cat="${c.id}" style="--cc:${catColor(c)}">
+                     <span>${c.icon} ${c.name}</span>
+                     <span class="amt">${baht(v)}</span></button>`;
+    });
+    chips.innerHTML = chipHtml;
+  }
+
+  const handleCatChange = cid => { 
+    state.cat = cid; 
+    state.items = []; 
+    state.page = 1; 
+    renderAll(); 
+  };
+  
+  if (chips) chips.querySelectorAll('.chip').forEach(b => b.onclick = () => handleCatChange(b.dataset.cat));
+  if (catDropdown) catDropdown.onchange = e => handleCatChange(e.target.value);
+}
+
+/* ═════════ 8) CHARTS ═════════ */
+let stackChart, donutChart, topChart;
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.color = '#64748b';
+  Chart.defaults.font.family = "'Noto Sans Thai', sans-serif";
+}
+
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  const labels = MATRIX.map(x => x.label);
+  stackChart?.destroy(); donutChart?.destroy(); topChart?.destroy();
+
+  const isSameId = (a, b) => String(a) === String(b);
+  const getRevenue = (x) => Number(x?.rev ?? x?.revenue ?? x?.total ?? 0);
+  const getItemName = (x) => x?.it?.name || x?.item?.name || x?.name || 'ไม่ระบุชื่อ';
+  const getItemId = (x) => x?.it?.id ?? x?.item?.id ?? x?.id;
+  const getItemCat = (x) => x?.it?.cat || x?.item?.cat || x?.cat;
+
+  /* ยอดขายรายวัน/รายเดือนของสินค้า 1 ตัว — อ่านตรงจาก SALES (เร็วกว่าการวน dayItems/monthItems ทั้งระบบ) */
+  const getProductSeriesData = (itemId) => {
+    const key = String(itemId);
+    const it = MENU.find(i => isSameId(i.id, itemId));
+    const price = Number(it?.price) || 0;
+    if (state.mode === 'daily') {
+      return Array.from({ length: daysIn(state.month) }, (_, i) =>
+        (Number(SALES[state.month]?.[i]?.[key]) || 0) * price);
+    }
+    return Array.from({ length: 12 }, (_, m) =>
+      (SALES[m] || []).reduce((s, r) => s + (Number(r[key]) || 0), 0) * price);
+  };
+
+  const getTotalProductRevenue = (itemId) => {
+    return getProductSeriesData(itemId).reduce((sum, v) => sum + v, 0);
+  };
+
+  let ds = [];
+  if (state.cat === 'all') {
+    if (state.items && state.items.length > 0) {
+      ds = MENU.filter(i => state.items.some(id => isSameId(id, i.id))).map((it, k) => ({
+        label: it.name,
+        itemId: it.id,
+        backgroundColor: itemColor(CATMAP[it.cat] || { h: 0 }, k),
+        borderColor: itemColor(CATMAP[it.cat] || { h: 0 }, k),
+        stack: 's',
+        borderRadius: 2,
+        data: getProductSeriesData(it.id)
+      }));
+    } else {
+      ds = CATS.map(c => ({
+        label: c.icon + ' ' + c.name,
+        catId: c.id,
+        backgroundColor: catColor(c),
+        borderColor: catColor(c),
+        stack: 's',
+        borderRadius: 2,
+        data: MATRIX.map(x => (x.byCat && x.byCat[c.id]) || 0)
+      }));
+    }
+  } else {
+    let itemsInCat = MENU.filter(i => isSameId(i.cat, state.cat));
+    if (state.items && state.items.length > 0) {
+      itemsInCat = itemsInCat.filter(i => state.items.some(id => isSameId(id, i.id)));
+    } else {
+      itemsInCat = itemsInCat.slice(0, 15);
+    }
+
+    ds = itemsInCat.map((it, k) => ({
+      label: it.name,
+      itemId: it.id,
+      backgroundColor: itemColor(CATMAP[state.cat] || { h: 0 }, k),
+      borderColor: itemColor(CATMAP[state.cat] || { h: 0 }, k),
+      stack: 's',
+      borderRadius: 2,
+      data: getProductSeriesData(it.id)
+    }));
+  }
+
+  const stackCtx = $('stackChart');
+  if (stackCtx) {
+    stackChart = new Chart(stackCtx, {
+      type: 'bar',
+      data: { labels, datasets: ds },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, elements) => {
+          if (!elements.length) return;
+          const selectedDs = ds[elements[0].datasetIndex];
+          if (selectedDs.catId) selectCategory(selectedDs.catId);
+          else if (selectedDs.itemId) selectItem(selectedDs.itemId);
+        },
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 8, padding: 8, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${baht(c.parsed.y || 0)}` } }
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, ticks: { callback: v => (v >= 1000 ? (v / 1000) + 'K' : v) } }
+        }
+      }
+    });
+  }
+
+  const rawList = filterCat(scopeItems());
+  let list = rawList.map(item => ({ ...item, rev: getRevenue(item) || getTotalProductRevenue(getItemId(item)) }));
+
+  if (list.length === 0) {
+    let baseMenu = state.items && state.items.length > 0 
+      ? MENU.filter(i => state.items.some(id => isSameId(id, i.id)))
+      : (state.cat === 'all' ? MENU : MENU.filter(i => isSameId(i.cat, state.cat)));
+
+    list = baseMenu.map(i => ({ ...i, rev: getTotalProductRevenue(i.id) }));
+  }
+
+  const isAll = state.cat === 'all' && (!state.items || state.items.length === 0);
+  const dLabels = isAll ? CATS.map(c => c.icon + ' ' + c.name) : list.slice(0, 10).map(x => getItemName(x));
+  const dData = isAll ? CATS.map(c => list.filter(x => isSameId(getItemCat(x), c.id)).reduce((s, x) => s + getRevenue(x), 0)) : list.slice(0, 10).map(x => getRevenue(x));
+  const dColor = isAll ? CATS.map(catColor) : list.slice(0, 10).map((x, k) => itemColor(CATMAP[getItemCat(x)] || { h: 0 }, k));
+  const dItems = isAll ? CATS : list.slice(0, 10);
+
+  const donutCtx = $('donutChart');
+  if (donutCtx) {
+    donutChart = new Chart(donutCtx, {
+      type: 'doughnut',
+      data: { labels: dLabels, datasets: [{ data: dData, backgroundColor: dColor, borderWidth: 2, borderColor: '#fff' }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '55%',
+        onClick: (e, elements) => {
+          if (!elements.length) return;
+          const target = dItems[elements[0].index];
+          if (isAll) selectCategory(target.id);
+          else if (getItemId(target)) selectItem(getItemId(target));
+        },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 8, padding: 6, font: { size: 10.5 } } },
+          tooltip: {
+            callbacks: {
+              label: c => {
+                const t = c.dataset.data.reduce((s, v) => s + v, 0);
+                return ` ${c.label}: ${baht(c.parsed)} (${t ? (c.parsed / t * 100).toFixed(1) : 0}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  const top = list.slice().sort((a, b) => getRevenue(b) - getRevenue(a)).slice(0, 8);
+  const topCtx = $('topChart');
+  if (topCtx) {
+    topChart = new Chart(topCtx, {
+      type: 'bar',
+      data: {
+        labels: top.map(x => getItemName(x)),
+        datasets: [{
+          data: top.map(x => getRevenue(x)),
+          borderRadius: 4,
+          backgroundColor: top.map((x, k) => catColor(CATMAP[getItemCat(x)] || { h: 0 }))
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, elements) => {
+          if (!elements.length) return;
+          const selectedItem = top[elements[0].index];
+          if (getItemId(selectedItem)) selectItem(getItemId(selectedItem));
+        },
+        plugins: { 
+          legend: { display: false }, 
+          tooltip: { callbacks: { label: c => ` ${baht(c.parsed.x || 0)}` } } 
+        },
+        scales: {
+          x: { ticks: { callback: v => (v >= 1000 ? (v / 1000) + 'K' : v) } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  }
+}
+
+/* ═════════ 9) ITEM SELECTOR & SEARCH ═════════ */
+const ITEM_SEARCH_LIMIT = 10;
+const TOP_CHIP_COUNT = 8;
+
+function renderItemSelectors(list) {
+  const container = $('itemChipsContainer');
+  if (state.cat === 'all') {
+    if (container) container.style.display = 'none';
+    return;
+  }
+
+  const catItems = MENU.filter(i => i.cat === state.cat);
+  if (!catItems.length) {
+    if (container) container.style.display = 'none';
+    return;
+  }
+
+  if (container) container.style.display = 'block';
+
+  const c = CATMAP[state.cat];
+  // สร้าง Map ครั้งเดียว (เดิมใช้ list.find ในการ sort ซึ่งช้ามากเมื่อมีสินค้าหลักพันรายการ)
+  const revMap = new Map();
+  list.forEach(x => { if (x && x.it) revMap.set(String(x.it.id), x.rev); });
+  const revOf = it => revMap.get(String(it.id)) || 0;
+  const catTotalRev = sumRev(list.filter(x => x.it.cat === state.cat));
+
+  if ($('browseCountTag'))$('browseCountTag').textContent = `(${catItems.length.toLocaleString()} รายการ)`;
+
+  const labelEl = $('itemPickerLabel');
+  if (labelEl) {
+    labelEl.innerHTML = state.items.length
+      ? `เลือกไว้ ${state.items.length} รายการ · <span id="clearItemsBtn" style="color:var(--forecast);cursor:pointer;text-decoration:underline">ล้างทั้งหมด</span>`
+      : 'ยอดนิยม:';
+    if ($('clearItemsBtn'))$('clearItemsBtn').onclick = clearItems;
+  }
+
+  const topItems = [...catItems].sort((a, b) => revOf(b) - revOf(a)).slice(0, TOP_CHIP_COUNT);
+  
+  let chipHtml = `<button class="chip ${state.items.length === 0 ? 'active' : ''}" data-item="all" style="--cc:${catColor(c)}">
+                     <span>${c.icon} ทั้งหมดในหมวดนี้</span><span class="amt">${baht(catTotalRev)}</span></button>`;
+  
+  topItems.forEach(it => {
+    const on = state.items.map(id => String(id)).includes(String(it.id));
+    chipHtml += `<button class="chip ${on ? 'active' : ''}" data-item="${it.id}" style="--cc:var(--forecast)">
+                   <span>${on ? '✓ ' : ''}${it.name}</span><span class="amt">${baht(revOf(it))}</span></button>`;
+  });
+
+  const itemChipsEl = $('itemChips');
+  if (itemChipsEl) {
+    itemChipsEl.innerHTML = chipHtml;
+    itemChipsEl.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+      if (b.dataset.item === 'all') clearItems(); else toggleItem(b.dataset.item);
+    });
+  }
+
+  const searchInput = $('itemSearchInput');
+  const resultsBox = $('itemSearchResults');
+
+  const renderSearchResults = () => {
+    const q = searchInput.value.trim().toLowerCase();
+    const currentCatItems = MENU.filter(i => i.cat === state.cat);
+    const scopeList = scopeItems();
+    const revNow = it => (scopeList.find(x => String(x.it.id) === String(it.id))?.rev) || 0;
+
+    if (!q) { hideItemSearchResults(); return; }
+
+    const matches = currentCatItems.filter(it => it.name.toLowerCase().includes(q));
+
+    if (!matches.length) {
+      resultsBox.innerHTML = `<div class="isr-empty" style="padding:10px;color:var(--gray-text);font-size:13px;">ไม่พบสินค้าที่ตรงกับ "${escHtml(searchInput.value)}"</div>`;
+    } else {
+      const shown = matches.slice(0, ITEM_SEARCH_LIMIT);
+      resultsBox.innerHTML = shown.map(it => {
+        const on = state.items.map(id => String(id)).includes(String(it.id));
+        return `<div class="isr-row ${on ? 'on' : ''}" data-item="${it.id}" style="padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid var(--gray-line);">
+                  <span class="n">${on ? '☑' : '☐'} ${it.name}</span>
+                  <span class="p" style="font-weight:600">${baht(revNow(it))}</span>
+                </div>`;
+      }).join('') + (matches.length > ITEM_SEARCH_LIMIT
+        ? `<div class="isr-more" id="isrMoreBtn" style="padding:8px;text-align:center;color:var(--primary);cursor:pointer;font-size:12px;">ดูอีก ${matches.length - ITEM_SEARCH_LIMIT} รายการทั้งหมด →</div>` : '');
+
+      resultsBox.querySelectorAll('.isr-row').forEach(r => r.onclick = () => { 
+        toggleItem(r.dataset.item); 
+        renderSearchResults(); 
+        resultsBox.classList.add('open'); 
+        searchInput.focus(); 
+      });
+
+      if ($('isrMoreBtn'))$('isrMoreBtn').onclick = () => { openBrowseModal(searchInput.value.trim()); hideItemSearchResults(); };
+    }
+    resultsBox.classList.add('open');
+  };
+
+  if (searchInput && resultsBox) {
+    searchInput.oninput = renderSearchResults;
+  }
+}
+
+/* ═════════ 10) ITEM TABLE & PAGINATION ═════════ */
+function renderItemTable() {
+  const itemBody = $('itemBody');
+  const itemFoot = $('itemFoot');
+  if (!itemBody || !itemFoot) return;
+
+  const rawScope = scopeItems();
+  const list = filterCat(rawScope)
+    .filter(x => x && x.it)
+    .sort((a, b) => b.rev - a.rev);
+
+  const totalRev = sumRev(list);
+  const totalQty = sumQty(list);
+  const totalItems = list.length;
+
+  if (totalItems === 0) {
+    itemBody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;padding:24px;color:var(--gray-text)">
+          ไม่พบข้อมูลสินค้าในหมวดหมู่หรือช่วงเวลาที่เลือก
+        </td>
+      </tr>`;
+    itemFoot.innerHTML = `
+      <tr>
+        <td style="text-align:left">รวมทั้งหมด (0 รายการ)</td>
+        <td>—</td>
+        <td>0 ชิ้น</td>
+        <td>฿0</td>
+        <td>100%</td>
+        <td>—</td>
+      </tr>`;
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / state.size));
+  if (state.page > totalPages) state.page = totalPages;
+
+  const start = (state.page - 1) * state.size;
+  const pageData = list.slice(start, start + state.size);
+
+  itemBody.innerHTML = pageData.map(x => {
+    const c = CATMAP[x.it.cat] || { icon: '📦', name: 'ทั่วไป', h: 0 };
+    const pct = totalRev ? (x.rev / totalRev * 100) : 0;
+    return `
+      <tr>
+        <td style="text-align:left;font-weight:600">
+          <span class="kpi-dot" style="background:${catColor(c)}"></span>${x.it.name}
+          <span style="font-size:11px;color:var(--gray-mid);margin-left:4px">(${c.icon} ${c.name})</span>
+        </td>
+        <td>${baht(x.it.price)}</td>
+        <td style="font-weight:600">${fmt(x.qty)}</td>
+        <td style="font-weight:700;color:var(--dark)">${baht(x.rev)}</td>
+        <td style="color:var(--gray-text)">${pct.toFixed(1)}%</td>
+        <td style="width:90px">
+          <div class="bar"><i style="width:${Math.min(100, pct * 4)}%;background:${catColor(c)}"></i></div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  itemFoot.innerHTML = `
+    <tr>
+      <td style="text-align:left">รวมทั้งหมด (${totalItems.toLocaleString()} รายการ)</td>
+      <td>—</td>
+      <td>${fmt(totalQty)} ชิ้น</td>
+      <td>${baht(totalRev)}</td>
+      <td>100%</td>
+      <td>—</td>
+    </tr>`;
+}
+
+/* ═════════ 11) FORECAST TABLE ═════════ */
+function renderForecastTable() {
+  const fcBody = $('fcBody');
+  const fcFoot = $('fcFoot');
+  if (!fcBody || !fcFoot) return;
+
+  const list = scopeItems();
+  const catsToRender = activeCats();
+
+  const revByCat = {};
+  list.forEach(x => { if (x && x.it) revByCat[x.it.cat] = (revByCat[x.it.cat] || 0) + x.rev; });
+
+  let sumCurrAll = 0;
+  let sumEstAll = 0;
+
+  fcBody.innerHTML = catsToRender.map(c => {
+    const curr = revByCat[c.id] || 0;
+    const est = curr * 1.15;
+    const diff = curr ? ((est - curr) / curr * 100) : 0;
+
+    sumCurrAll += curr;
+    sumEstAll += est;
+
+    return `
+      <tr>
+        <td style="text-align:left;font-weight:600">
+          <span class="kpi-dot" style="background:${catColor(c)}"></span>${c.icon} ${c.name}
+        </td>
+        <td>${baht(curr)}</td>
+        <td style="font-weight:700;color:var(--forecast)">${baht(est)}</td>
+        <td class="${diff >= 0 ? 'up' : 'down'}" style="font-weight:600">
+          ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%
+        </td>
+      </tr>`;
+  }).join('');
+
+  const totalDiff = sumCurrAll ? ((sumEstAll - sumCurrAll) / sumCurrAll * 100) : 0;
+
+  fcFoot.innerHTML = `
+    <tr>
+      <td style="text-align:left">ยอดพยากรณ์รวม</td>
+      <td>${baht(sumCurrAll)}</td>
+      <td style="color:var(--forecast)">${baht(sumEstAll)}</td>
+      <td class="${totalDiff >= 0 ? 'up' : 'down'}">
+        ${totalDiff >= 0 ? '▲' : '▼'} ${totalDiff.toFixed(1)}%
+      </td>
+    </tr>`;
+}
+
+/* ═════════ 12) PIVOT TABLE & PAGER ═════════ */
+function setPage(p) {
+  state.page = p;
+  renderItemTable();
+  renderPivotTable();
+}
+
+function renderPivotTable() {
+  const pivotHead = $('pivotHead');
+  const pivotBody = $('pivotBody');
+  const pivotFoot = $('pivotFoot');
+  if (!pivotHead || !pivotBody || !pivotFoot) return;
+
+  const catsToRender = activeCats();
+  
+  pivotHead.innerHTML = `
+    <th style="min-width:120px">${state.mode === 'daily' ? 'วันที่' : 'เดือน'}</th>
+    <th style="min-width:90px">วัน</th>
+    ${catsToRender.map(c => `<th>${c.icon}${c.name}</th>`).join('')}
+    <th style="min-width:110px">รวมยอดขาย</th>
+    <th style="min-width:140px">สินค้าขายดีสุด</th>`;
+
+  const totalItems = MATRIX.length;
+  const size = state.size;
+  const totalPages = Math.max(1, Math.ceil(totalItems / size));
+  if (state.page > totalPages) state.page = totalPages;
+
+  const start = (state.page - 1) * size;
+  const pageRows = MATRIX.slice(start, start + size);
+
+  pivotBody.innerHTML = pageRows.map(row => `
+    <tr>
+      <td style="font-weight:600;text-align:left">${row.label}</td>
+      <td>${row.dow || '—'}</td>
+      ${catsToRender.map(c => `<td>${baht(row.byCat[c.id] || 0)}</td>`).join('')}
+      <td style="font-weight:700;color:var(--primary)">${baht(row.total)}</td>
+      <td style="text-align:left;font-size:12px;color:var(--gray-text)">
+        ${row.best.name} <span style="color:var(--primary)">(${fmt(row.best.qty)} ชิ้น)</span>
+      </td>
+    </tr>`).join('');
+
+  const sumByCat = {};
+  catsToRender.forEach(c => sumByCat[c.id] = MATRIX.reduce((s, r) => s + (r.byCat[c.id] || 0), 0));
+  const grandTotal = MATRIX.reduce((s, r) => s + (Number(r.total) || 0), 0);
+
+  pivotFoot.innerHTML = `
+    <tr>
+      <td style="text-align:left">รวมทั้งหมด</td>
+      <td>—</td>
+      ${catsToRender.map(c => `<td>${baht(sumByCat[c.id] || 0)}</td>`).join('')}
+      <td style="color:var(--primary);font-weight:700">${baht(grandTotal)}</td>
+      <td>—</td>
+    </tr>`;
+
+  if ($('pagerInfo'))$('pagerInfo').textContent = `แสดง ${start + 1} - ${Math.min(start + size, totalItems)} จาก ${totalItems} รายการ`;
+  
+  let pgBtns = `<button class="pg" ${state.page === 1 ? 'disabled' : ''} onclick="setPage(${state.page - 1})">❮</button>`;
+  for (let p = 1; p <= totalPages; p++) {
+    pgBtns += `<button class="pg ${p === state.page ? 'active' : ''}" onclick="setPage(${p})">${p}</button>`;
+  }
+  pgBtns += `<button class="pg" ${state.page === totalPages ? 'disabled' : ''} onclick="setPage(${state.page + 1})">❯</button>`;
+  if ($('pages'))$('pages').innerHTML = pgBtns;
+}
+
+/* ═════════ 13) MASTER RENDER & DATA FETCHING ═════════ */
+function renderAll() {
+  buildMatrix();
+  renderKPI();
+  renderCatSelectors();
+  renderItemSelectors(scopeItems());
+  renderCharts();
+  renderItemTable();
+  renderForecastTable();
+  renderPivotTable();
+}
+
+function fillDays() {
+  const dayPicker = $('dayPicker');
+  if (!dayPicker) return;
+  const max = daysIn(state.month);
+  dayPicker.innerHTML = Array.from({ length: max }, (_, i) => `<option value="${i}">${i + 1} ${MONTHS[state.month]}</option>`).join('');
+  if (state.day >= max) state.day = max - 1;
+  dayPicker.value = state.day;
+  dayPicker.style.display = state.mode === 'daily' ? 'inline-block' : 'none';
+}
+
+function fillMonths() {
+  const monthPicker = $('monthPicker');
+  if (!monthPicker) return;
+  monthPicker.innerHTML = MONTHS.map((m, i) => `<option value="${i}">${m} 2569</option>`).join('');
+  monthPicker.value = state.month;
+}
+
+/* Map หมวดหมู่: ใช้ category_id (1–10) ตรง ๆ ก่อน ถ้าไม่มีให้ลองจับคู่จากชื่อหมวดในตาราง category */
+function mapCategory(catId, catName) {
+  const id = String(catId ?? '').trim();
+  if (CATMAP[id]) return id;                                   // 1) category_id ตรงกับ CATS
+
+  const byName = CAT_BY_NAME[String(catName ?? '').replace(/\s+/g, '')];
+  if (byName) return byName;                                   // 2) ชื่อหมวดตรงตัว
+
+  console.warn('ไม่รู้จักหมวดหมู่:', catId, catName);
+  return id || 'unknown';                                      // 3) ไม่ทิ้งสินค้า
+}
+
+/* แหล่งข้อมูลสินค้า: 1) API  2) products-data.js  3) ข้อมูลตัวอย่าง 10 รายการ */
+async function fetchProducts() {
+  try {
+    const res = await fetch('/api/products');
+    if (res.ok) {
+      const result = await res.json();
+      const items = Array.isArray(result) ? result : (result.data || []);
+      if (items.length > 0) return { items, source: 'API' };
+    }
+  } catch (err) {
+    console.warn('เรียก /api/products ไม่สำเร็จ:', err);
+  }
+  if (Array.isArray(window.PRODUCTS_DATA) && window.PRODUCTS_DATA.length > 0) {
+    return { items: window.PRODUCTS_DATA, source: 'products-data.js' };
+  }
+  return { items: [], source: 'ข้อมูลตัวอย่าง' };
+}
+
+async function loadDashboardData() {
+  const { items, source } = await fetchProducts();
+
+  if (items.length > 0) {
+    MENU = items.map((item, idx) => ({
+      id: String(item.product_id || `P-${idx + 1}`),
+      name: item.product_name || `สินค้า ${idx + 1}`,
+      cat: mapCategory(item.category_id, item.category_name),
+      price: Number(item.price || 0),
+      cost: Number(item.cost || 0),
+      stock: Number(item.stock || 0),
+      base: Math.max(5, Math.floor(Number(item.stock || 30) * 0.2))
+    }));
+  }
+
+  // แสดงที่มาของข้อมูลบนหน้าจอ เพื่อให้รู้ทันทีว่าโหลดครบหรือไม่
+  const badge = $('dataSource');
+  if (badge) {
+    const ok = MENU.length > 100;
+    badge.textContent = `${MENU.length.toLocaleString('th-TH')} รายการ · ${source}`;
+    badge.style.background = ok ? 'rgba(22,163,74,.12)' : 'rgba(217,119,6,.15)';
+    badge.style.color = ok ? 'var(--success)' : 'var(--warn)';
+  }
+  console.info(`โหลดสินค้า ${MENU.length} รายการ จาก ${source}`);
+
+  generateSalesData();
+  fillDays();
+  renderAll();
+}
+
+/* ═════════ 14) EVENT LISTENERS ═════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tab').forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      state.mode = b.dataset.mode;
+      state.page = 1;
+      fillDays();
+      renderAll();
+    };
+  });
+
+  fillMonths();
+
+  if ($('monthPicker'))$('monthPicker').onchange = e => { state.month = Number(e.target.value); state.page = 1; fillDays(); renderAll(); };
+  if ($('dayPicker'))$('dayPicker').onchange = e => { state.day = Number(e.target.value); state.page = 1; renderAll(); };
+  if ($('pageSize'))$('pageSize').onchange = e => { state.size = Number(e.target.value); state.page = 1; renderAll(); };
+
+  document.addEventListener('click', e => {
+    const searchInput = $('itemSearchInput');
+    const resultsBox = $('itemSearchResults');
+    if (searchInput && resultsBox && !searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+      hideItemSearchResults();
+    }
+  });
+
+  loadDashboardData();
+});
+</script>
+</body>
+</html>
