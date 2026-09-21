@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Consumables Sales Dashboard — 10 Categories</title>
+<title>Consumables Sales Dashboard — BI Palette Compare Mode</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -210,7 +210,7 @@
       <div class="topbar">
         <div>
           <h1>แดชบอร์ดยอดขายสินค้าอุปโภคบริโภค</h1>
-          <p>ครอบคลุมสินค้าครบทั้ง 10 หมวดหมู่หลัก (คลิกการ์ด KPI เพื่อดูรายละเอียดสินค้า)
+          <p>ครอบคลุมสินค้าครบทั้ง 10 หมวดหมู่หลัก (ระบบปรับชุดสีอัตโนมัติเมื่อเลือก Compare สินค้า)
             <span id="dataSource" class="badge" style="margin-left:6px;background:#F1F5F9;color:var(--gray-text)">กำลังโหลดข้อมูล...</span></p>
         </div>
         <div class="controls">
@@ -276,7 +276,7 @@
           <div class="chart-box tall"><canvas id="stackChart"></canvas></div>
         </div>
         <div class="card">
-          <h3 id="donutTitle">สัดส่วนหมวดหมู่</h3>
+          <h3 id="donutTitle">สัดส่วนหมวดหมู่ / สินค้า</h3>
           <div class="hint" id="donutHint">คำนวณจากยอดขายของช่วงที่เลือก</div>
           <div class="chart-box tall"><canvas id="donutChart"></canvas></div>
         </div>
@@ -401,7 +401,7 @@
   </div>
 </div>
 
-<!-- ข้อมูลสินค้าทั้งหมด 5,120 รายการ (วางไฟล์ไว้โฟลเดอร์เดียวกับ dashboard.html) -->
+<!-- ข้อมูลสินค้าทั้งหมด 5,120 รายการ -->
 <script src="products-data.js"></script>
 <script>
 /* ═════════ 1) MASTER DATA & CONFIG ═════════ */
@@ -425,8 +425,36 @@ const CATS = [
 
 const CATMAP = Object.fromEntries(CATS.map(c => [c.id, c]));
 const CAT_BY_NAME = Object.fromEntries(CATS.map(c => [c.name.replace(/\s+/g, ''), c.id]));
-const catColor = c => `hsl(${c ? c.h : 0}, 75%, 48%)`; 
-const itemColor = (c, k) => `hsl(${c ? c.h : 0}, ${Math.max(30, 70 - k * 4)}%, ${Math.min(78, 50 + k * 2)}%)`;
+
+/* 🎨 ชุดสีเปรียบเทียบมาตรฐานสำหรับโหมด COMPARE (BI Standard Palette) */
+const COMPARE_PALETTE = [
+  '#7C3AED', // ม่วง (สินค้าตัวที่ 1)
+  '#F97316', // ส้ม (สินค้าตัวที่ 2)
+  '#0EA5E9', // ฟ้า (สินค้าตัวที่ 3)
+  '#10B981', // เขียว (สินค้าตัวที่ 4)
+  '#EC4899', // ชมพู
+  '#EAB308', // เหลือง
+  '#6366F1', // อินดิโก้
+  '#14B8A6'  // เขียวมิ้นต์
+];
+
+/* 
+ * 🎨 Dynamic Color Function 
+ * - ถ้าอยู่ในหมวดหมู่ปกติ: ใช้สีประจำหมวดหมู่ 
+ * - ถ้าเลือกเปรียบเทียบสินค้า (Compare Mode): ใช้ชุดสีเปรียบเทียบมาตรฐาน (ม่วง, ส้ม, ฟ้า, เขียว...)
+ */
+const catColor = c => `hsl(${c ? c.h : 0}, 75%, 48%)`;
+
+const getItemCompareColor = (index) => {
+  return COMPARE_PALETTE[index % COMPARE_PALETTE.length];
+};
+
+const itemColor = (catObj, index, isCompareMode = false) => {
+  if (isCompareMode) {
+    return getItemCompareColor(index);
+  }
+  return `hsl(${catObj ? catObj.h : 0}, ${Math.max(30, 70 - index * 4)}%, ${Math.min(78, 50 + index * 2)}%)`;
+};
 
 const MULT = {
   '1': [0.95, 1.1], '2': [0.9, 1.15], '3': [0.9, 1.1], '4': [1.0, 1.2], '5': [1.1, 1.3],
@@ -436,7 +464,7 @@ const MULT = {
 const daysIn = m => new Date(2026, m + 1, 0).getDate();
 const rnd = (a, b) => a + Math.random() * (b - a);
 
-/* ข้อมูลสำรอง (ใช้เมื่อไม่มี backend) */
+/* ข้อมูลสำรอง */
 let MENU = [
   { id: 'p1',  name: 'ข้าวหอมมะลิ 5 กก.',           cat: '1',  price: 195, base: 15 },
   { id: 'p2',  name: 'ซีอิ๊วขาว 1,000 มล.',          cat: '2',  price: 48,  base: 25 },
@@ -453,13 +481,13 @@ let SALES = [];
 
 /* ═════════ 2) STATE & HELPERS ═════════ */
 const state = {
-  mode: 'daily',  // 'daily' หรือ 'monthly'
-  month: 0,        // 0 = มกราคม
-  day: 0,          // วันที่ 0 (คือวันที่ 1)
-  cat: 'all',      // หมวดหมู่ที่เลือก
-  items: [],       // สินค้าที่เลือกเจาะจง
-  page: 1,         // หน้าปัจจุบันของตาราง
-  size: 10         // แถวต่อหน้า
+  mode: 'daily',  
+  month: 0,        
+  day: 0,          
+  cat: 'all',      
+  items: [],       
+  page: 1,         
+  size: 10         
 };
 
 const $ = id => document.getElementById(id);
@@ -718,7 +746,6 @@ let browseState = { page: 1, size: 20, query: '', cat: 'all' };
 const escHtml = s => String(s ?? '').replace(/[&<>"']/g, ch =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-/* สินค้าที่ผ่านตัวกรอง "หมวดหมู่ + คำค้น" ของ modal นี้ */
 function browseFilteredItems() {
   const q = browseState.query;
   return MENU.filter(it => {
@@ -731,7 +758,6 @@ function browseFilteredItems() {
 function openBrowseModal(prefillQuery = '') {
   browseState = { page: 1, size: 20, query: String(prefillQuery || '').trim().toLowerCase(), cat: state.cat };
 
-  // ตัวเลือกหมวดหมู่ พร้อมจำนวนสินค้าจริงของแต่ละหมวด
   const counts = {};
   MENU.forEach(it => { counts[it.cat] = (counts[it.cat] || 0) + 1; });
 
@@ -744,7 +770,6 @@ function openBrowseModal(prefillQuery = '') {
     sel.onchange = () => {
       browseState.cat = sel.value;
       browseState.page = 1;
-      // sync กับหน้า dashboard (เหมือนการกดชิปหมวดหมู่)
       state.cat = sel.value;
       state.items = [];
       state.page = 1;
@@ -778,29 +803,25 @@ function renderBrowseList() {
   const body = $('browseListBody');
   if (!body) return;
 
-  // 1) กรอง + เรียงตามยอดขายในช่วงที่เลือก (สร้าง Map ครั้งเดียว ไม่ใช้ find ซ้ำ)
   const statMap = new Map();
   scopeItems().forEach(x => { if (x && x.it) statMap.set(String(x.it.id), x); });
   const statOf = it => statMap.get(String(it.id)) || { qty: 0, rev: 0 };
 
   const items = browseFilteredItems().sort((a, b) => statOf(b).rev - statOf(a).rev);
 
-  // 2) แบ่งหน้า
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / browseState.size));
   browseState.page = Math.min(Math.max(1, browseState.page), totalPages);
   const start = (browseState.page - 1) * browseState.size;
   const pageItems = items.slice(start, start + browseState.size);
 
-  // 3) หัวข้อ
   const cur = CATMAP[browseState.cat];
-  if ($('browseTitle')) $('browseTitle').textContent = cur
+  if ($('browseTitle'))$('browseTitle').textContent = cur
     ? `${cur.icon} สินค้าในหมวด ${cur.name}`
     : '📋 สินค้าทั้งหมดทุกหมวดหมู่';
-  if ($('browseSub')) $('browseSub').textContent =
+  if ($('browseSub'))$('browseSub').textContent =
     `พบ ${total.toLocaleString('th-TH')} รายการ · ยอดขาย ${scopeName()} · คลิกเพื่อเลือกดูเจาะจงรายตัว`;
 
-  // 4) รายการสินค้า
   const selected = new Set(state.items.map(String));
   body.innerHTML = pageItems.length === 0
     ? `<div class="browse-empty">ไม่พบสินค้าที่ตรงกับเงื่อนไข</div>`
@@ -822,15 +843,13 @@ function renderBrowseList() {
           </div>`;
       }).join('');
 
-  // 5) แถบ "เลือกไว้ N รายการ"
   const bar = $('browseSelectedBar');
   if (bar) {
     bar.style.display = state.items.length ? 'flex' : 'none';
-    if ($('browseSelectedCount')) $('browseSelectedCount').textContent = `เลือกไว้ ${state.items.length} รายการ`;
+    if ($('browseSelectedCount'))$('browseSelectedCount').textContent = `เลือกไว้ ${state.items.length} รายการ`;
   }
 
-  // 6) ตัวแบ่งหน้า (แสดงเฉพาะหน้าใกล้เคียง เพราะบางหมวดมีหลายร้อยรายการ)
-  if ($('browsePagerInfo')) $('browsePagerInfo').textContent = total
+  if ($('browsePagerInfo'))$('browsePagerInfo').textContent = total
     ? `แสดง ${start + 1}–${Math.min(start + browseState.size, total)} จาก ${total.toLocaleString('th-TH')} รายการ`
     : 'ไม่พบรายการ';
 
@@ -844,21 +863,20 @@ function renderBrowseList() {
     last = n;
   });
   btns += `<button class="pg" ${p === totalPages ? 'disabled' : ''} onclick="changeBrowsePage(${p + 1})">❯</button>`;
-  if ($('browsePages')) $('browsePages').innerHTML = btns;
+  if ($('browsePages'))$('browsePages').innerHTML = btns;
 }
 
 function changeBrowsePage(n) {
   browseState.page = n;
   renderBrowseList();
-  if ($('browseListBody')) $('browseListBody').scrollTop = 0;
+  if ($('browseListBody'))$('browseListBody').scrollTop = 0;
 }
 
 function browseToggle(id) {
-  toggleItem(id);       // อัปเดต state.items + วาด dashboard ใหม่
-  renderBrowseList();   // อัปเดตรายการใน modal
+  toggleItem(id);       
+  renderBrowseList();   
 }
 
-/* กด Esc เพื่อปิด popup ทั้งสองแบบ */
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeBrowseModal(); closeModal(); }
 });
@@ -938,7 +956,6 @@ function renderCatSelectors() {
   }
 
   if (chips) {
-    // รวมยอดขายต่อหมวดครั้งเดียว (แทนการ filter ซ้ำทุกหมวด)
     const revByCat = {};
     list.forEach(x => { if (x && x.it) revByCat[x.it.cat] = (revByCat[x.it.cat] || 0) + x.rev; });
 
@@ -964,7 +981,7 @@ function renderCatSelectors() {
   if (catDropdown) catDropdown.onchange = e => handleCatChange(e.target.value);
 }
 
-/* ═════════ 8) CHARTS ═════════ */
+/* ═════════ 8) CHARTS WITH BI COMPARE PALETTE ═════════ */
 let stackChart, donutChart, topChart;
 if (typeof Chart !== 'undefined') {
   Chart.defaults.color = '#64748b';
@@ -983,7 +1000,6 @@ function renderCharts() {
   const getItemId = (x) => x?.it?.id ?? x?.item?.id ?? x?.id;
   const getItemCat = (x) => x?.it?.cat || x?.item?.cat || x?.cat;
 
-  /* ยอดขายรายวัน/รายเดือนของสินค้า 1 ตัว — อ่านตรงจาก SALES (เร็วกว่าการวน dayItems/monthItems ทั้งระบบ) */
   const getProductSeriesData = (itemId) => {
     const key = String(itemId);
     const it = MENU.find(i => isSameId(i.id, itemId));
@@ -1000,19 +1016,24 @@ function renderCharts() {
     return getProductSeriesData(itemId).reduce((sum, v) => sum + v, 0);
   };
 
+  // ตรวจสอบว่ากำลังเลือกเปรียบเทียบสินค้าอยู่หรือไม่
+  const isCompareMode = state.items && state.items.length > 0;
+
   let ds = [];
   if (state.cat === 'all') {
-    if (state.items && state.items.length > 0) {
+    if (isCompareMode) {
+      // 🎨 เปรียบเทียบสินค้าต่างหมวดหมู่ -> ใช้ Compare Palette (ม่วง, ส้ม, ฟ้า, เขียว...)
       ds = MENU.filter(i => state.items.some(id => isSameId(id, i.id))).map((it, k) => ({
         label: it.name,
         itemId: it.id,
-        backgroundColor: itemColor(CATMAP[it.cat] || { h: 0 }, k),
-        borderColor: itemColor(CATMAP[it.cat] || { h: 0 }, k),
+        backgroundColor: itemColor(CATMAP[it.cat] || { h: 0 }, k, true),
+        borderColor: itemColor(CATMAP[it.cat] || { h: 0 }, k, true),
         stack: 's',
         borderRadius: 2,
         data: getProductSeriesData(it.id)
       }));
     } else {
+      // 🎨 แสดงระดับหมวดหมู่ -> ใช้สีหมวดหมู่ประจำตัวคงที่
       ds = CATS.map(c => ({
         label: c.icon + ' ' + c.name,
         catId: c.id,
@@ -1025,17 +1046,18 @@ function renderCharts() {
     }
   } else {
     let itemsInCat = MENU.filter(i => isSameId(i.cat, state.cat));
-    if (state.items && state.items.length > 0) {
+    if (isCompareMode) {
       itemsInCat = itemsInCat.filter(i => state.items.some(id => isSameId(id, i.id)));
     } else {
       itemsInCat = itemsInCat.slice(0, 15);
     }
 
+    // 🎨 เปรียบเทียบสินค้าในหมวดเดียวกัน -> ใช้ Compare Palette เมื่อกดเลือกหลายรายการ
     ds = itemsInCat.map((it, k) => ({
       label: it.name,
       itemId: it.id,
-      backgroundColor: itemColor(CATMAP[state.cat] || { h: 0 }, k),
-      borderColor: itemColor(CATMAP[state.cat] || { h: 0 }, k),
+      backgroundColor: itemColor(CATMAP[state.cat] || { h: 0 }, k, isCompareMode),
+      borderColor: itemColor(CATMAP[state.cat] || { h: 0 }, k, isCompareMode),
       stack: 's',
       borderRadius: 2,
       data: getProductSeriesData(it.id)
@@ -1082,7 +1104,12 @@ function renderCharts() {
   const isAll = state.cat === 'all' && (!state.items || state.items.length === 0);
   const dLabels = isAll ? CATS.map(c => c.icon + ' ' + c.name) : list.slice(0, 10).map(x => getItemName(x));
   const dData = isAll ? CATS.map(c => list.filter(x => isSameId(getItemCat(x), c.id)).reduce((s, x) => s + getRevenue(x), 0)) : list.slice(0, 10).map(x => getRevenue(x));
-  const dColor = isAll ? CATS.map(catColor) : list.slice(0, 10).map((x, k) => itemColor(CATMAP[getItemCat(x)] || { h: 0 }, k));
+  
+  // 🎨 กำหนดชุดสีของ Donut Chart
+  const dColor = isAll 
+    ? CATS.map(catColor) 
+    : list.slice(0, 10).map((x, k) => itemColor(CATMAP[getItemCat(x)] || { h: 0 }, k, isCompareMode));
+    
   const dItems = isAll ? CATS : list.slice(0, 10);
 
   const donutCtx = $('donutChart');
@@ -1125,7 +1152,7 @@ function renderCharts() {
         datasets: [{
           data: top.map(x => getRevenue(x)),
           borderRadius: 4,
-          backgroundColor: top.map((x, k) => catColor(CATMAP[getItemCat(x)] || { h: 0 }))
+          backgroundColor: top.map((x, k) => itemColor(CATMAP[getItemCat(x)] || { h: 0 }, k, isCompareMode))
         }]
       },
       options: {
@@ -1150,7 +1177,7 @@ function renderCharts() {
   }
 }
 
-/* ═════════ 9) ITEM SELECTOR & SEARCH ═════════ */
+/* ═════════ 9) ITEM SELECTOR & SEARCH WITH COMPARE COLORS ═════════ */
 const ITEM_SEARCH_LIMIT = 10;
 const TOP_CHIP_COUNT = 8;
 
@@ -1170,7 +1197,6 @@ function renderItemSelectors(list) {
   if (container) container.style.display = 'block';
 
   const c = CATMAP[state.cat];
-  // สร้าง Map ครั้งเดียว (เดิมใช้ list.find ในการ sort ซึ่งช้ามากเมื่อมีสินค้าหลักพันรายการ)
   const revMap = new Map();
   list.forEach(x => { if (x && x.it) revMap.set(String(x.it.id), x.rev); });
   const revOf = it => revMap.get(String(it.id)) || 0;
@@ -1181,7 +1207,7 @@ function renderItemSelectors(list) {
   const labelEl = $('itemPickerLabel');
   if (labelEl) {
     labelEl.innerHTML = state.items.length
-      ? `เลือกไว้ ${state.items.length} รายการ · <span id="clearItemsBtn" style="color:var(--forecast);cursor:pointer;text-decoration:underline">ล้างทั้งหมด</span>`
+      ? `เลือกเปรียบเทียบ ${state.items.length} รายการ · <span id="clearItemsBtn" style="color:var(--forecast);cursor:pointer;text-decoration:underline">ล้างทั้งหมด</span>`
       : 'ยอดนิยม:';
     if ($('clearItemsBtn'))$('clearItemsBtn').onclick = clearItems;
   }
@@ -1192,8 +1218,12 @@ function renderItemSelectors(list) {
                      <span>${c.icon} ทั้งหมดในหมวดนี้</span><span class="amt">${baht(catTotalRev)}</span></button>`;
   
   topItems.forEach(it => {
-    const on = state.items.map(id => String(id)).includes(String(it.id));
-    chipHtml += `<button class="chip ${on ? 'active' : ''}" data-item="${it.id}" style="--cc:var(--forecast)">
+    const selectedIndex = state.items.map(id => String(id)).indexOf(String(it.id));
+    const on = selectedIndex > -1;
+    // 🎨 ถ้าเลือกอยู่ ให้แสดงสีเปรียบเทียบ (ม่วง, ส้ม, ฟ้า, เขียว...) ตามลำดับการเลือก
+    const chipColor = on ? getItemCompareColor(selectedIndex) : 'var(--gray-mid)';
+    
+    chipHtml += `<button class="chip ${on ? 'active' : ''}" data-item="${it.id}" style="--cc:${chipColor}">
                    <span>${on ? '✓ ' : ''}${it.name}</span><span class="amt">${baht(revOf(it))}</span></button>`;
   });
 
@@ -1287,14 +1317,22 @@ function renderItemTable() {
 
   const start = (state.page - 1) * state.size;
   const pageData = list.slice(start, start + state.size);
+  const isCompareMode = state.items && state.items.length > 0;
 
-  itemBody.innerHTML = pageData.map(x => {
+  itemBody.innerHTML = pageData.map((x, idx) => {
     const c = CATMAP[x.it.cat] || { icon: '📦', name: 'ทั่วไป', h: 0 };
     const pct = totalRev ? (x.rev / totalRev * 100) : 0;
+    
+    // 🎨 ถ้าอยู่ในโหมด Compare ให้ดึงสีเปรียบเทียบของสินค้านั้นมาใช้
+    const selectedIdx = state.items.map(id => String(id)).indexOf(String(x.it.id));
+    const rowColor = (isCompareMode && selectedIdx > -1)
+      ? getItemCompareColor(selectedIdx) 
+      : catColor(c);
+
     return `
       <tr>
         <td style="text-align:left;font-weight:600">
-          <span class="kpi-dot" style="background:${catColor(c)}"></span>${x.it.name}
+          <span class="kpi-dot" style="background:${rowColor}"></span>${x.it.name}
           <span style="font-size:11px;color:var(--gray-mid);margin-left:4px">(${c.icon} ${c.name})</span>
         </td>
         <td>${baht(x.it.price)}</td>
@@ -1302,7 +1340,7 @@ function renderItemTable() {
         <td style="font-weight:700;color:var(--dark)">${baht(x.rev)}</td>
         <td style="color:var(--gray-text)">${pct.toFixed(1)}%</td>
         <td style="width:90px">
-          <div class="bar"><i style="width:${Math.min(100, pct * 4)}%;background:${catColor(c)}"></i></div>
+          <div class="bar"><i style="width:${Math.min(100, pct * 4)}%;background:${rowColor}"></i></div>
         </td>
       </tr>`;
   }).join('');
@@ -1460,19 +1498,17 @@ function fillMonths() {
   monthPicker.value = state.month;
 }
 
-/* Map หมวดหมู่: ใช้ category_id (1–10) ตรง ๆ ก่อน ถ้าไม่มีให้ลองจับคู่จากชื่อหมวดในตาราง category */
 function mapCategory(catId, catName) {
   const id = String(catId ?? '').trim();
-  if (CATMAP[id]) return id;                                   // 1) category_id ตรงกับ CATS
+  if (CATMAP[id]) return id;
 
   const byName = CAT_BY_NAME[String(catName ?? '').replace(/\s+/g, '')];
-  if (byName) return byName;                                   // 2) ชื่อหมวดตรงตัว
+  if (byName) return byName;
 
   console.warn('ไม่รู้จักหมวดหมู่:', catId, catName);
-  return id || 'unknown';                                      // 3) ไม่ทิ้งสินค้า
+  return id || 'unknown';
 }
 
-/* แหล่งข้อมูลสินค้า: 1) API  2) products-data.js  3) ข้อมูลตัวอย่าง 10 รายการ */
 async function fetchProducts() {
   try {
     const res = await fetch('/api/products');
@@ -1505,49 +1541,60 @@ async function loadDashboardData() {
     }));
   }
 
-  // แสดงที่มาของข้อมูลบนหน้าจอ เพื่อให้รู้ทันทีว่าโหลดครบหรือไม่
   const badge = $('dataSource');
   if (badge) {
     const ok = MENU.length > 100;
-    badge.textContent = `${MENU.length.toLocaleString('th-TH')} รายการ · ${source}`;
-    badge.style.background = ok ? 'rgba(22,163,74,.12)' : 'rgba(217,119,6,.15)';
-    badge.style.color = ok ? 'var(--success)' : 'var(--warn)';
+    badge.textContent = `${MENU.length.toLocaleString('th-TH')} รายการ (${source})`;
+    badge.style.background = ok ? '#DCFCE7' : '#F1F5F9';
+    badge.style.color = ok ? '#15803D' : 'var(--gray-text)';
   }
-  console.info(`โหลดสินค้า ${MENU.length} รายการ จาก ${source}`);
 
   generateSalesData();
+  fillMonths();
   fillDays();
   renderAll();
 }
 
 /* ═════════ 14) EVENT LISTENERS ═════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  loadDashboardData();
+
+  const monthPicker = $('monthPicker');
+  if (monthPicker) {
+    monthPicker.onchange = e => {
+      state.month = Number(e.target.value);
+      fillDays();
+      renderAll();
+    };
+  }
+
+  const dayPicker = $('dayPicker');
+  if (dayPicker) {
+    dayPicker.onchange = e => {
+      state.day = Number(e.target.value);
+      renderAll();
+    };
+  }
+
+  const pageSize = $('pageSize');
+  if (pageSize) {
+    pageSize.onchange = e => {
+      state.size = Number(e.target.value);
+      state.page = 1;
+      renderItemTable();
+      renderPivotTable();
+    };
+  }
+
   document.querySelectorAll('.tab').forEach(b => {
     b.onclick = () => {
       document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       state.mode = b.dataset.mode;
-      state.page = 1;
       fillDays();
       renderAll();
     };
   });
-
-  fillMonths();
-
-  if ($('monthPicker'))$('monthPicker').onchange = e => { state.month = Number(e.target.value); state.page = 1; fillDays(); renderAll(); };
-  if ($('dayPicker'))$('dayPicker').onchange = e => { state.day = Number(e.target.value); state.page = 1; renderAll(); };
-  if ($('pageSize'))$('pageSize').onchange = e => { state.size = Number(e.target.value); state.page = 1; renderAll(); };
-
-  document.addEventListener('click', e => {
-    const searchInput = $('itemSearchInput');
-    const resultsBox = $('itemSearchResults');
-    if (searchInput && resultsBox && !searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
-      hideItemSearchResults();
-    }
-  });
-
-  loadDashboardData();
 });
 </script>
 </body>
