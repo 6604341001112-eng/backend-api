@@ -8,7 +8,7 @@ const categoryRoutes = require('./routes/categories');
 const productRoutes = require('./routes/products');
 const salesRoutes = require('./routes/sales');
 const forecastRoutes = require('./routes/forecast');
-
+const poRoutes = require('./routes/po'); //
 const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -25,6 +25,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/forecast', forecastRoutes);
+app.use('/api/po', poRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'AI Stock API is running', time: new Date().toISOString() });

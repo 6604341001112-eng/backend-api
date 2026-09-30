@@ -201,6 +201,7 @@
     <a href="categories.html" class="nav-item"><span class="dot"></span>หมวดหมู่สินค้า</a>
     <a href="sales.html" class="nav-item"><span class="dot"></span>การขาย</a>
     <a href="forecast.html" class="nav-item"><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</a>
+    <a href="test.html" class="nav-item on"><span class="dot"></span>พยากรณ์ยอดขายรายปี</a>
   </div>
 
   <div class="main">
@@ -249,16 +250,14 @@
       <!-- Product-level Selector (item-picker) -->
       <div class="item-picker" id="itemChipsContainer" style="display: none;">
         <div class="item-picker-top">
-          <!-- ช่องค้นหาพร้อม Placeholder -->
           <div class="item-search-box">
             <span class="isb-icon">🔍</span>
             <input type="text" id="itemSearchInput" placeholder="พิมพ์ชื่อสินค้าเพื่อค้นหาในหมวดนี้ เช่น ข้าวหอมมะลิ..." autocomplete="off">
             <div class="item-search-results" id="itemSearchResults"></div>
           </div>
           
-          <!-- ปุ่มดูสินค้าทั้งหมดในหมวด -->
           <button class="btn" id="browseAllBtn" onclick="openBrowseModal()">
-            📋 ดูสินค้าทั้งหมดในหมวดนี้ <span id="browseCountTag">(512 รายการ)</span>
+            📋 ดูสินค้าทั้งหมดในหมวดนี้ <span id="browseCountTag">(0 รายการ)</span>
           </button>
         </div>
 
@@ -401,7 +400,7 @@
   </div>
 </div>
 
-<!-- ข้อมูลสินค้าทั้งหมด 5,120 รายการ -->
+<!-- ข้อมูลสินค้าสำรอง หากไม่มี API -->
 <script src="products-data.js"></script>
 <script>
 /* ═════════ 1) MASTER DATA & CONFIG ═════════ */
@@ -409,7 +408,6 @@ const MONTHS = ['มกราคม','กุมภาพันธ์','มีน
 const MSHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const DOW    = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 
-/* หมวดหมู่ตรงกับตาราง category ในฐานข้อมูล (category_id 1–10) */
 const CATS = [
   {id:'1',  name:'ข้าว แป้ง เส้น',            icon:'🌾', h:45},
   {id:'2',  name:'เครื่องปรุงรส',             icon:'🍾', h:10},
@@ -426,57 +424,20 @@ const CATS = [
 const CATMAP = Object.fromEntries(CATS.map(c => [c.id, c]));
 const CAT_BY_NAME = Object.fromEntries(CATS.map(c => [c.name.replace(/\s+/g, ''), c.id]));
 
-/* 🎨 ชุดสีเปรียบเทียบมาตรฐานสำหรับโหมด COMPARE (BI Standard Palette) */
 const COMPARE_PALETTE = [
-  '#7C3AED', // ม่วง (สินค้าตัวที่ 1)
-  '#F97316', // ส้ม (สินค้าตัวที่ 2)
-  '#0EA5E9', // ฟ้า (สินค้าตัวที่ 3)
-  '#10B981', // เขียว (สินค้าตัวที่ 4)
-  '#EC4899', // ชมพู
-  '#EAB308', // เหลือง
-  '#6366F1', // อินดิโก้
-  '#14B8A6'  // เขียวมิ้นต์
+  '#7C3AED', '#F97316', '#0EA5E9', '#10B981', '#EC4899', '#EAB308', '#6366F1', '#14B8A6'
 ];
 
-/* 
- * 🎨 Dynamic Color Function 
- * - ถ้าอยู่ในหมวดหมู่ปกติ: ใช้สีประจำหมวดหมู่ 
- * - ถ้าเลือกเปรียบเทียบสินค้า (Compare Mode): ใช้ชุดสีเปรียบเทียบมาตรฐาน (ม่วง, ส้ม, ฟ้า, เขียว...)
- */
 const catColor = c => `hsl(${c ? c.h : 0}, 75%, 48%)`;
-
-const getItemCompareColor = (index) => {
-  return COMPARE_PALETTE[index % COMPARE_PALETTE.length];
-};
-
+const getItemCompareColor = (index) => COMPARE_PALETTE[index % COMPARE_PALETTE.length];
 const itemColor = (catObj, index, isCompareMode = false) => {
-  if (isCompareMode) {
-    return getItemCompareColor(index);
-  }
+  if (isCompareMode) return getItemCompareColor(index);
   return `hsl(${catObj ? catObj.h : 0}, ${Math.max(30, 70 - index * 4)}%, ${Math.min(78, 50 + index * 2)}%)`;
 };
 
-const MULT = {
-  '1': [0.95, 1.1], '2': [0.9, 1.15], '3': [0.9, 1.1], '4': [1.0, 1.2], '5': [1.1, 1.3],
-  '6': [1.0, 1.25], '7': [0.95, 1.15], '8': [1.0, 1.2], '9': [0.85, 1.05], '10': [0.9, 1.1]
-};
-
 const daysIn = m => new Date(2026, m + 1, 0).getDate();
-const rnd = (a, b) => a + Math.random() * (b - a);
 
-/* ข้อมูลสำรอง */
-let MENU = [
-  { id: 'p1',  name: 'ข้าวหอมมะลิ 5 กก.',           cat: '1',  price: 195, base: 15 },
-  { id: 'p2',  name: 'ซีอิ๊วขาว 1,000 มล.',          cat: '2',  price: 48,  base: 25 },
-  { id: 'p3',  name: 'ปลากระป๋อง 155 กรัม',          cat: '3',  price: 32,  base: 30 },
-  { id: 'p4',  name: 'บะหมี่กึ่งสำเร็จรูป แพ็ค 10',  cat: '4',  price: 65,  base: 40 },
-  { id: 'p5',  name: 'มันฝรั่งทอดกรอบ XL',           cat: '5',  price: 30,  base: 50 },
-  { id: 'p6',  name: 'น้ำอัดลม 1.25 ลิตร',           cat: '6',  price: 28,  base: 35 },
-  { id: 'p7',  name: 'นมพาสเจอร์ไรส์ 1 ลิตร',        cat: '7',  price: 55,  base: 20 },
-  { id: 'p8',  name: 'กาแฟสำเร็จรูป 180 กรัม',       cat: '8',  price: 120, base: 30 },
-  { id: 'p9',  name: 'หมูสไลซ์ 500 กรัม',            cat: '9',  price: 110, base: 18 },
-  { id: 'p10', name: 'นักเก็ตไก่แช่แข็ง 500g',       cat: '10', price: 89,  base: 12 }
-];
+let MENU = [];
 let SALES = [];
 
 /* ═════════ 2) STATE & HELPERS ═════════ */
@@ -491,31 +452,14 @@ const state = {
 };
 
 const $ = id => document.getElementById(id);
-const fmt = n => Math.round(n).toLocaleString('th-TH');
-const baht = n => '฿' + Math.round(n).toLocaleString('th-TH');
+const fmt = n => Math.round(n || 0).toLocaleString('th-TH');
+const baht = n => '฿' + Math.round(n || 0).toLocaleString('th-TH');
 const sumRev = l => l.reduce((s, x) => s + (Number(x.rev) || 0), 0);
 const sumQty = l => l.reduce((s, x) => s + (Number(x.qty) || 0), 0);
 
-function generateSalesData() {
-  SALES = MONTHS.map((_, m) =>
-    Array.from({ length: daysIn(m) }, (_, d) => {
-      const dow = new Date(2026, m, d + 1).getDay();
-      const rec = {};
-      const isWeekend = dow === 0 || dow === 6 ? 1.2 : 1.0;
-      
-      MENU.forEach(it => {
-        const catKey = String(it.cat);
-        const mInfo = MULT[catKey] || [0.9, 1.1];
-        rec[String(it.id)] = Math.max(0, Math.round(it.base * isWeekend * rnd(mInfo[0], mInfo[1])));
-      });
-      return rec;
-    })
-  );
-}
-
 /* ═════════ 3) DATA HELPERS & MATRIX ═════════ */
 function dayItems(m, d) {
-  if (!SALES[m] || !SALES[m][d]) return [];
+  if (!SALES[m] || !SALES[m][d]) return MENU.map(it => ({ it, qty: 0, rev: 0 }));
   const r = SALES[m][d];
   return MENU.map(it => {
     const q = Number(r[String(it.id)] ?? r[it.id]) || 0;
@@ -525,7 +469,7 @@ function dayItems(m, d) {
 }
 
 function monthItems(m) {
-  if (!SALES[m]) return [];
+  if (!SALES[m]) return MENU.map(it => ({ it, qty: 0, rev: 0 }));
   const agg = {}; 
   MENU.forEach(it => agg[String(it.id)] = 0);
   
@@ -700,15 +644,16 @@ function openKpiModal(type) {
 
   const mRev = sumRev(itemsToShow);
   const mQty = sumQty(itemsToShow);
-  if ($('modalSummary')) {$('modalSummary').innerHTML = `
+  if ($('modalSummary')) {
+    $('modalSummary').innerHTML = `
       <div class="modal-summary-item"><div class="lbl">จำนวนรายการ</div><div class="val">${itemsToShow.length.toLocaleString()} รายการ</div></div>
       <div class="modal-summary-item"><div class="lbl">ขายได้รวม</div><div class="val" style="color:var(--primary)">${fmt(mQty)} ชิ้น</div></div>
       <div class="modal-summary-item"><div class="lbl">ยอดขายรวม</div><div class="val" style="color:var(--success)">${baht(mRev)}</div></div>
     `;
   }
 
-  if ($('modalTitle'))$('modalTitle').textContent = title;
-  if ($('modalSub'))$('modalSub').textContent = sub;
+  if ($('modalTitle')) $('modalTitle').textContent = title;
+  if ($('modalSub')) $('modalSub').textContent = sub;
 
   const tbody = $('modalTableBody');
   if (tbody) {
@@ -731,12 +676,12 @@ function openKpiModal(type) {
     }
   }
 
-  if ($('kpiModal'))$('kpiModal').classList.add('open');
+  if ($('kpiModal')) $('kpiModal').classList.add('open');
 }
 
 function closeModal(e) {
   if (!e || e.target.classList.contains('modal-backdrop') || e.target.classList.contains('modal-close')) {
-    if ($('kpiModal'))$('kpiModal').classList.remove('open');
+    if ($('kpiModal')) $('kpiModal').classList.remove('open');
   }
 }
 
@@ -887,7 +832,8 @@ function renderKPI() {
   if (!kpiGrid) return;
 
   const list = filterCat(scopeItems()).filter(x => x.qty > 0);
-  const total = sumRev(list), qty = sumQty(list);
+  const total = sumRev(list);
+  const qty = sumQty(list);
 
   let prev = null;
   if (state.mode === 'daily') {
@@ -1016,13 +962,11 @@ function renderCharts() {
     return getProductSeriesData(itemId).reduce((sum, v) => sum + v, 0);
   };
 
-  // ตรวจสอบว่ากำลังเลือกเปรียบเทียบสินค้าอยู่หรือไม่
   const isCompareMode = state.items && state.items.length > 0;
 
   let ds = [];
   if (state.cat === 'all') {
     if (isCompareMode) {
-      // 🎨 เปรียบเทียบสินค้าต่างหมวดหมู่ -> ใช้ Compare Palette (ม่วง, ส้ม, ฟ้า, เขียว...)
       ds = MENU.filter(i => state.items.some(id => isSameId(id, i.id))).map((it, k) => ({
         label: it.name,
         itemId: it.id,
@@ -1033,7 +977,6 @@ function renderCharts() {
         data: getProductSeriesData(it.id)
       }));
     } else {
-      // 🎨 แสดงระดับหมวดหมู่ -> ใช้สีหมวดหมู่ประจำตัวคงที่
       ds = CATS.map(c => ({
         label: c.icon + ' ' + c.name,
         catId: c.id,
@@ -1052,7 +995,6 @@ function renderCharts() {
       itemsInCat = itemsInCat.slice(0, 15);
     }
 
-    // 🎨 เปรียบเทียบสินค้าในหมวดเดียวกัน -> ใช้ Compare Palette เมื่อกดเลือกหลายรายการ
     ds = itemsInCat.map((it, k) => ({
       label: it.name,
       itemId: it.id,
@@ -1105,7 +1047,6 @@ function renderCharts() {
   const dLabels = isAll ? CATS.map(c => c.icon + ' ' + c.name) : list.slice(0, 10).map(x => getItemName(x));
   const dData = isAll ? CATS.map(c => list.filter(x => isSameId(getItemCat(x), c.id)).reduce((s, x) => s + getRevenue(x), 0)) : list.slice(0, 10).map(x => getRevenue(x));
   
-  // 🎨 กำหนดชุดสีของ Donut Chart
   const dColor = isAll 
     ? CATS.map(catColor) 
     : list.slice(0, 10).map((x, k) => itemColor(CATMAP[getItemCat(x)] || { h: 0 }, k, isCompareMode));
@@ -1220,7 +1161,6 @@ function renderItemSelectors(list) {
   topItems.forEach(it => {
     const selectedIndex = state.items.map(id => String(id)).indexOf(String(it.id));
     const on = selectedIndex > -1;
-    // 🎨 ถ้าเลือกอยู่ ให้แสดงสีเปรียบเทียบ (ม่วง, ส้ม, ฟ้า, เขียว...) ตามลำดับการเลือก
     const chipColor = on ? getItemCompareColor(selectedIndex) : 'var(--gray-mid)';
     
     chipHtml += `<button class="chip ${on ? 'active' : ''}" data-item="${it.id}" style="--cc:${chipColor}">
@@ -1323,7 +1263,6 @@ function renderItemTable() {
     const c = CATMAP[x.it.cat] || { icon: '📦', name: 'ทั่วไป', h: 0 };
     const pct = totalRev ? (x.rev / totalRev * 100) : 0;
     
-    // 🎨 ถ้าอยู่ในโหมด Compare ให้ดึงสีเปรียบเทียบของสินค้านั้นมาใช้
     const selectedIdx = state.items.map(id => String(id)).indexOf(String(x.it.id));
     const rowColor = (isCompareMode && selectedIdx > -1)
       ? getItemCompareColor(selectedIdx) 
@@ -1505,7 +1444,6 @@ function mapCategory(catId, catName) {
   const byName = CAT_BY_NAME[String(catName ?? '').replace(/\s+/g, '')];
   if (byName) return byName;
 
-  console.warn('ไม่รู้จักหมวดหมู่:', catId, catName);
   return id || 'unknown';
 }
 
@@ -1515,7 +1453,7 @@ async function fetchProducts() {
     if (res.ok) {
       const result = await res.json();
       const items = Array.isArray(result) ? result : (result.data || []);
-      if (items.length > 0) return { items, source: 'API' };
+      if (items.length > 0) return { items, source: 'API (Database)' };
     }
   } catch (err) {
     console.warn('เรียก /api/products ไม่สำเร็จ:', err);
@@ -1523,7 +1461,59 @@ async function fetchProducts() {
   if (Array.isArray(window.PRODUCTS_DATA) && window.PRODUCTS_DATA.length > 0) {
     return { items: window.PRODUCTS_DATA, source: 'products-data.js' };
   }
-  return { items: [], source: 'ข้อมูลตัวอย่าง' };
+  return { items: [], source: 'ข้อมูลสำรอง' };
+}
+
+async function loadSalesFromApi() {
+  try {
+    const res = await fetch('/api/sale');
+    if (!res.ok) {
+      console.warn('⚠️ /api/sale ตอบกลับ status:', res.status);
+      return false;
+    }
+    
+    const salesData = await res.json();
+    const list = Array.isArray(salesData) ? salesData : (salesData.data || []);
+
+    if (!Array.isArray(list) || list.length === 0) {
+      console.warn('⚠️ ไม่พบข้อมูลการขายใน Database');
+      return false;
+    }
+
+    SALES = MONTHS.map((_, m) =>
+      Array.from({ length: daysIn(m) }, () => ({}))
+    );
+
+    let matchCount = 0;
+
+    list.forEach(s => {
+      const rawDate = s.sale_date || s.created_at;
+      if (!rawDate) return;
+      
+      const dObj = new Date(rawDate);
+      if (isNaN(dObj.getTime())) return;
+      
+      const m = dObj.getMonth();
+      const d = dObj.getDate() - 1;
+
+      if (SALES[m] && SALES[m][d]) {
+        const pId = String(s.product_id || s.id || '').trim();
+        const qty = Number(s.quantity || s.qty || 0);
+        
+        if (pId) {
+          SALES[m][d][pId] = (SALES[m][d][pId] || 0) + qty;
+          matchCount++;
+        }
+      }
+    });
+
+    console.log(`✅ ดึงยอดขายสำเร็จ แมตช์ข้อมูลทั้งหมด ${matchCount} รายการ`);
+    return matchCount > 0;
+
+  } catch (err) {
+    console.error('❌ ดึงข้อมูล /api/sale ไม่สำเร็จ:', err);
+    return false;
+  }
 }
 
 async function loadDashboardData() {
@@ -1531,25 +1521,37 @@ async function loadDashboardData() {
 
   if (items.length > 0) {
     MENU = items.map((item, idx) => ({
-      id: String(item.product_id || `P-${idx + 1}`),
-      name: item.product_name || `สินค้า ${idx + 1}`,
-      cat: mapCategory(item.category_id, item.category_name),
+      id: String(item.product_id || item.id || `P-${idx + 1}`).trim(),
+      name: item.product_name || item.name || `สินค้า ${idx + 1}`,
+      cat: mapCategory(item.category_id || item.cat, item.category_name),
       price: Number(item.price || 0),
       cost: Number(item.cost || 0),
-      stock: Number(item.stock || 0),
-      base: Math.max(5, Math.floor(Number(item.stock || 30) * 0.2))
+      stock: Number(item.stock || 0)
     }));
   }
 
   const badge = $('dataSource');
   if (badge) {
-    const ok = MENU.length > 100;
     badge.textContent = `${MENU.length.toLocaleString('th-TH')} รายการ (${source})`;
-    badge.style.background = ok ? '#DCFCE7' : '#F1F5F9';
-    badge.style.color = ok ? '#15803D' : 'var(--gray-text)';
+    badge.style.background = '#DCFCE7';
+    badge.style.color = '#15803D';
   }
 
-  generateSalesData();
+  const hasRealSales = await loadSalesFromApi();
+
+  if (!hasRealSales) {
+    console.warn('⚠️ ไม่พบยอดขายจริงจาก API กำลังใช้ข้อมูลสุ่มสำรอง');
+    SALES = MONTHS.map((_, m) =>
+      Array.from({ length: daysIn(m) }, () => {
+        const rec = {};
+        MENU.forEach(it => {
+          rec[String(it.id)] = Math.floor(Math.random() * 16);
+        });
+        return rec;
+      })
+    );
+  }
+
   fillMonths();
   fillDays();
   renderAll();

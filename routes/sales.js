@@ -2,6 +2,41 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
+// GET: /api/sales - ดึงรายการยอดขายทั้งหมดพร้อมวันที่ สินค้า และจำนวน เพื่อทำ Dashboard
+router.get('/', async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                s.sale_date,
+                sd.product_id,
+                sd.quantity
+            FROM sale s
+            JOIN sale_detail sd ON s.sale_id = sd.sale_id
+            ORDER BY s.sale_date ASC
+        `;
+        const [rows] = await db.query(sql);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching sales data for dashboard:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET: /api/sales/grand-total - ดึงยอดขายรวมจริงทั้งหมดจากตาราง sale
+router.get('/grand-total', async (req, res) => {
+    try {
+        // ดึง SUM(total_amount) จากตาราง sale โดยตรง
+        const [rows] = await db.query('SELECT COALESCE(SUM(total_amount), 0) AS grand_total FROM sale');
+        res.json({ 
+            success: true, 
+            totalSales: Number(rows[0].grand_total) 
+        });
+    } catch (err) {
+        console.error('Error fetching grand total sales:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // POST: /api/sales - บันทึกการขายและตัดสต็อก
 router.post('/', async (req, res) => {
     try {
