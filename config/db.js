@@ -1,5 +1,4 @@
 // config/db.js
-// เชื่อมต่อฐานข้อมูล MySQL แบบ Connection Pool (ใช้ mysql2/promise เพื่อรองรับ async/await)
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 
@@ -11,14 +10,15 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  dateStrings: true // คืนค่า DATE/DATETIME เป็น string ตรง ๆ ป้องกันปัญหา timezone เพี้ยน
+  dateStrings: true
 });
 
-// ทดสอบการเชื่อมต่อทันทีตอนบูตแอป เพื่อให้เห็น error ชัดเจนถ้าตั้งค่า .env ผิด
+// ทดสอบการเชื่อมต่อ
 (async () => {
   try {
     const conn = await pool.getConnection();
-    console.log(`✅ เชื่อมต่อ MySQL สำเร็จ (database: ${process.env.DB_NAME})`);
+    const dbName = process.env.DB_NAME || 'consumables';
+    console.log(`✅ เชื่อมต่อ MySQL สำเร็จ (database: ${dbName})`);
     conn.release();
   } catch (err) {
     console.error('❌ เชื่อมต่อ MySQL ไม่สำเร็จ:', err.message);

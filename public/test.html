@@ -1,1230 +1,1835 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th" class="h-full bg-slate-50 text-slate-800">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>พยากรณ์ยอดขายรายปี | AI Stock</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Google Fonts: Kanit & Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>พยากรณ์ยอดขายรายปี | AI Stock</title>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Kanit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
-  <style>
-    body {
-      font-family: 'Kanit', 'Inter', sans-serif;
-      margin: 0;
-      padding: 0;
-    }
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    /* โครงสร้างหลัก (Shell Architecture) */
-    .shell {
-      display: flex;
-      min-height: 100vh;
-      width: 100%;
-    }
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-    /* Sidebar เมนูหลักตรงตามสไตล์หน้าอื่น */
-    .sidebar {
-      width: 260px;
-      background-color: #0b1329; /* Dark Navy Theme */
-      color: #94a3b8;
-      flex-shrink: 0;
-      padding: 20px 16px;
-      display: flex;
-      flex-direction: column;
-      box-sizing: border-box;
-    }
+    <style>
+      body {
+        font-family: "Kanit", "Inter", sans-serif;
+        margin: 0;
+        padding: 0;
+        font-size: 15px;
+      }
 
-    .sidebar .logo {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 28px;
-      padding-left: 12px;
-      display: flex;
-      flex-direction: column;
-    }
+      .shell {
+        display: flex;
+        min-height: 100vh;
+        width: 100%;
+      }
 
-    .sidebar .logo span {
-      font-size: 0.7rem;
-      font-weight: 400;
-      color: #64748b;
-      margin-top: 2px;
-    }
+      .sidebar {
+        width: 240px;
+        background: #0f172a;
+        color: #cbd5e1;
+        flex-shrink: 0;
+        padding: 22px 0;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
 
-    .sidebar .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      color: #94a3b8;
-      text-decoration: none;
-      font-size: 0.875rem;
-      font-weight: 500;
-      border-radius: 8px;
-      margin-bottom: 4px;
-      transition: all 0.2s ease;
-    }
+      .sidebar .logo {
+        padding: 0 20px 20px;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 14px;
+        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+      }
 
-    .sidebar .nav-item:hover {
-      background-color: rgba(255, 255, 255, 0.05);
-      color: #f1f5f9;
-    }
+      .sidebar .logo span {
+        display: block;
+        font-size: 13px;
+        font-weight: 400;
+        color: #94a3b8;
+        margin-top: 3px;
+      }
 
-    .sidebar .nav-item.on {
-      background-color: #1d283c;
-      color: #38bdf8; /* สีฟ้าสว่าง Active */
-      font-weight: 600;
-    }
+      .sidebar .nav-item {
+        padding: 12px 20px;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-left: 3px solid transparent;
+        color: #94a3b8;
+        text-decoration: none;
+        transition: 0.2s;
+      }
 
-    .sidebar .nav-item .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background-color: #475569;
-      display: inline-block;
-    }
+      .sidebar .nav-item:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.05);
+      }
 
-    .sidebar .nav-item.on .dot {
-      background-color: #38bdf8;
-      box-shadow: 0 0 8px #38bdf8;
-    }
+      .sidebar .nav-item.on {
+        background: rgba(37, 99, 235, 0.15);
+        color: #ffffff;
+        border-left-color: #2563eb;
+        font-weight: 600;
+      }
 
-    .main-content {
-      flex: 1;
-      background-color: #f8fafc;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-    }
+      .sidebar .nav-item .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #475569;
+        flex-shrink: 0;
+      }
 
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f5f9;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
+      .sidebar .nav-item.on .dot {
+        background: #2563eb;
+      }
 
-    .glass-panel {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(226, 232, 240, 0.8);
-    }
-  </style>
-</head>
-<body class="bg-slate-100 text-slate-800">
+      .main-content {
+        flex: 1;
+        background-color: #f8fafc;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
 
-  <div class="shell">
-    <!-- 1. SIDEBAR NAVIGATION (แก้ tag ปิดให้สมบูรณ์) -->
-    <aside class="sidebar border-r border-slate-800/50 justify-between">
-      <div>
-        <div class="logo">AI Stock<span>Sales Forecasting System</span></div>
-        <a href="dashboard.html" class="nav-item"><span class="dot"></span>Dashboard</a>
-        <a href="product.html" class="nav-item"><span class="dot"></span>จัดการสินค้า</a>
-        <a href="categories.html" class="nav-item"><span class="dot"></span>หมวดหมู่สินค้า</a>
-        <a href="sales.html" class="nav-item"><span class="dot"></span>การขาย</a>
-        <a href="forecast.html" class="nav-item"><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</a>
-        <a href="test.html" class="nav-item on"><span class="dot"></span>พยากรณ์ยอดขายรายปี</a>
-      </div>
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
 
-      <!-- User Profile Footer -->
-      <div class="pt-4 border-t border-slate-800/80 flex items-center gap-3 px-2">
-        <div class="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs border border-sky-500/30">
-          AD
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+      }
+
+      .pagination-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .btn-page {
+        padding: 8px 16px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #334155;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-page:hover:not(:disabled) {
+        background: #f1f5f9;
+      }
+      .btn-page:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .page-info {
+        font-size: 14px;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 text-slate-800">
+    <div class="shell">
+      <!-- SIDEBAR NAVIGATION -->
+      <aside class="sidebar border-r border-slate-800/50 justify-between">
+        <div>
+          <div class="logo">AI Stock<span>Sales Forecasting System</span></div>
+          <a href="dashboard.html" class="nav-item"
+            ><span class="dot"></span>Dashboard</a
+          >
+          <a href="product.html" class="nav-item"
+            ><span class="dot"></span>จัดการสินค้า</a
+          >
+          <a href="categories.html" class="nav-item"
+            ><span class="dot"></span>หมวดหมู่สินค้า</a
+          >
+          <a href="sales.html" class="nav-item"
+            ><span class="dot"></span>การขาย</a
+          >
+          <a href="forecast.html" class="nav-item"
+            ><span class="dot"></span>พยากรณ์ยอดขายด้วย AI</a
+          >
+          <a href="test.html" class="nav-item on"
+            ><span class="dot"></span>พยากรณ์ยอดขายรายปี</a
+          >
         </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-semibold text-slate-200 truncate">Administrator</p>
-          <p class="text-[10px] text-slate-400 truncate">Inventory Manager</p>
-        </div>
-      </div>
-    </aside>
 
-    <!-- MAIN CONTENT CONTAINER (ยืดความกว้างเต็มพื้นที่ด้วย w-full) -->
-    <div class="flex-1 flex flex-col min-w-0 w-full">
-
-      <!-- Top Navigation & Header (ยืดสุดขอบ w-full) -->
-      <header class="border-b border-slate-200 bg-white/90 sticky top-0 z-30 backdrop-blur-md px-4 lg:px-8 py-3.5 shadow-sm w-full">
-        <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-xl shadow-md shadow-sky-500/20 text-white">
-              <i data-lucide="trending-up" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h1 class="text-lg lg:text-xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-sky-700 bg-clip-text text-transparent">
-                ระบบพยากรณ์ยอดขาย & วางแผนสต็อกสินค้า
-              </h1>
-              <p class="text-xs text-slate-600">Flexible Annual Sales Forecasting & Inventory Planning Dashboard</p>
-            </div>
+        <div
+          class="pt-4 border-t border-slate-800/80 flex items-center gap-3 px-3"
+        >
+          <div
+            class="w-9 h-9 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-sm border border-sky-500/30"
+          >
+            AD
           </div>
-
-          <div class="flex items-center gap-2.5 self-end sm:self-auto">
-            <button id="btnExportCSV" onclick="exportPOToCSV()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium px-3.5 py-2 rounded-xl transition shadow-sm">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>ส่งออกรายงาน PO (CSV)</span>
-            </button>
-            <button onclick="resetAllFilters()" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl transition border border-slate-300">
-              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-              <span>รีเซ็ตตัวกรอง</span>
-            </button>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-200 truncate">
+              Administrator
+            </p>
+            <p class="text-xs text-slate-400 truncate">Inventory Manager</p>
           </div>
         </div>
-      </header>
+      </aside>
 
-      <!-- Main Section Body (ยืดความกว้างเต็มพื้นที่ด้วย w-full) -->
-      <main class="flex-1 w-full p-4 lg:p-8 space-y-6">
-
-        <!-- SECTION 1: Control Panel -->
-        <section class="glass-panel rounded-2xl p-5 shadow-sm border border-slate-200 w-full">
-          <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-200">
-            <div class="flex items-center gap-2 text-sky-700 font-semibold text-sm">
-              <i data-lucide="sliders" class="w-4 h-4"></i>
-              <span>แผงควบคุมปีและโมเดลพยากรณ์ (Flexible Year Slicer & Forecast Controls)</span>
-            </div>
-            <span class="text-[11px] text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 font-medium">
-              คำนวณอัตโนมัติแบบเรียลไทม์
-            </span>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- Year 1: Base Year -->
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700 flex items-center justify-between">
-                <span>ปีฐาน / Base Year (Year 1)</span>
-                <span class="text-[10px] text-slate-600">อดีต</span>
-              </label>
-              <select id="selectBaseYear" onchange="handleYearChange()" class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl text-xs p-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm">
-                <option value="2023">2566 (2023)</option>
-                <option value="2024" selected>2567 (2024)</option>
-                <option value="2025">2568 (2025)</option>
-              </select>
-            </div>
-
-            <!-- Year 2: Comparison Year -->
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700 flex items-center justify-between">
-                <span>ปีเปรียบเทียบ / Comparison Year (Year 2)</span>
-                <span class="text-[10px] text-sky-600 font-semibold">ล่าสุด</span>
-              </label>
-              <select id="selectCompYear" onchange="handleYearChange()" class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl text-xs p-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm">
-                <option value="2024">2567 (2024)</option>
-                <option value="2025" selected>2568 (2025)</option>
-                <option value="2026">2569 (2026)</option>
-              </select>
-            </div>
-
-            <!-- Year 3: Forecast Year -->
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700 flex items-center justify-between">
-                <span>ปีพยากรณ์ / Forecast Year (Year 3)</span>
-                <span class="text-[10px] text-emerald-600 font-semibold">อนาคต</span>
-              </label>
-              <select id="selectForecastYear" onchange="renderDashboard()" class="w-full bg-white border border-emerald-500 text-emerald-700 font-semibold rounded-xl text-xs p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-sm">
-                <option value="2026" selected>2569 (2026)</option>
-                <option value="2027">2570 (2027)</option>
-              </select>
-            </div>
-
-            <!-- Forecast Model -->
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">โมเดลประมวลผลพยากรณ์</label>
-              <select id="selectForecastModel" onchange="renderDashboard()" class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl text-xs p-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm">
-                <option value="cagr">อัตราเติบโตทบต้น (YoY CAGR Trend)</option>
-                <option value="linear">การถดถอยเชิงเส้น (Linear Trend)</option>
-                <option value="weighted">ถ่วงน้ำหนักการเติบโตล่าสุด (Weighted YoY)</option>
-              </select>
-            </div>
-
-            <!-- Target Growth Factor Slider -->
-            <div class="space-y-1">
-              <div class="flex justify-between items-center text-xs font-medium text-slate-700">
-                <span>ปรับเป้าการเติบโตเพิ่ม</span>
-                <span id="targetGrowthVal" class="text-sky-700 font-bold">+10%</span>
+      <!-- MAIN CONTENT CONTAINER -->
+      <div class="flex-1 flex flex-col min-w-0 w-full">
+        <!-- Header -->
+        <header
+          class="border-b border-slate-200 bg-white/90 sticky top-0 z-30 backdrop-blur-md px-6 lg:px-8 py-4 shadow-sm w-full"
+        >
+          <div
+            class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          >
+            <div class="flex items-center gap-3.5">
+              <div
+                class="p-3 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-xl shadow-md shadow-sky-500/20 text-white"
+              >
+                <i data-lucide="trending-up" class="w-6 h-6"></i>
               </div>
-              <input type="range" id="inputGrowthTarget" min="-20" max="50" step="5" value="10" oninput="updateTargetGrowthLabel(this.value); renderDashboard();" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600 mt-2">
-              <div class="flex justify-between text-[10px] text-slate-600">
-                <span>-20%</span>
-                <span>0%</span>
-                <span>+50%</span>
+              <div>
+                <h1
+                  class="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-sky-700 bg-clip-text text-transparent"
+                >
+                  พยากรณ์ยอดขาย & วางแผนสต็อกสินค้า
+                </h1>
+                <p class="text-sm text-slate-600 mt-1">
+                  แดชบอร์ดวิเคราะห์ยอดขายเปรียบเทียบปีฐาน, ปีเปรียบเทียบ
+                  และพยากรณ์ปีถัดไป
+                </p>
               </div>
             </div>
-          </div>
-        </section>
 
-        <!-- SECTION 2: Month Slicer & Category Filter Bar -->
-        <section class="glass-panel rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3 w-full">
-          <div>
-            <div class="text-xs text-slate-600 mb-2 font-medium flex items-center gap-1.5">
-              <i data-lucide="calendar" class="w-3.5 h-3.5 text-sky-600"></i>
-              <span>เลือกสไลซ์เดือน (Month Slicer):</span>
-            </div>
-            <div id="monthSlicerContainer" class="flex flex-wrap gap-1.5"></div>
-          </div>
-
-          <div class="flex flex-col sm:flex-row items-center gap-3 pt-2 border-t border-slate-200">
-            <!-- Dynamic Category Selector -->
-            <div class="w-full sm:w-64">
-              <select id="selectCategory" onchange="renderDashboard()" class="w-full bg-white border border-slate-300 text-slate-700 text-xs rounded-xl p-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm">
-                <!-- Populated Dynamically -->
-              </select>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="relative flex-1 w-full">
-              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-600"></i>
-              <input type="text" id="inputSearch" oninput="renderDashboard()" placeholder="ค้นหาสินค้าด้วยชื่อสินค้า หรือ รหัส SKU..." class="w-full bg-white border border-slate-300 text-slate-800 pl-9 pr-4 py-2 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm">
-            </div>
-
-            <div id="filterSummaryText" class="text-xs text-slate-600 whitespace-nowrap bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 w-full sm:w-auto text-center sm:text-left">
-              แสดงข้อมูล: <span class="text-sky-700 font-semibold">12 เดือนทั้งหมด</span>
+            <div class="flex items-center gap-3 self-end sm:self-auto">
+              <button
+                id="btnExportCSV"
+                onclick="exportPOToCSV()"
+                class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition shadow-sm"
+              >
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>ส่งออกรายงาน PO (CSV)</span>
+              </button>
+              <button
+                onclick="resetAllFilters()"
+                class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm px-3.5 py-2.5 rounded-xl transition border border-slate-300"
+              >
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                <span>รีเซ็ตตัวกรอง</span>
+              </button>
             </div>
           </div>
-        </section>
+        </header>
 
-        <!-- SECTION 3: Executive KPI Overview Strip -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-          <div class="glass-card rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs text-slate-600">ยอดขายรวมปีฐาน (<span class="lblBaseYear">2024</span>)</p>
-              <h3 id="kpiBaseYearRev" class="text-xl font-bold text-slate-800 mt-1">฿0</h3>
-              <p id="kpiBaseYearQty" class="text-[11px] text-slate-600 mt-0.5">0 ชิ้น</p>
-            </div>
-            <div class="p-3 bg-slate-100 rounded-xl text-slate-600">
-              <i data-lucide="history" class="w-5 h-5"></i>
-            </div>
-          </div>
+        <!-- Main Section -->
+        <main class="flex-1 w-full p-4 lg:p-8 space-y-6">
+          <!-- SECTION 1: Control Panel -->
+<section class="glass-panel rounded-2xl p-6 shadow-sm border border-slate-200 w-full">
+  <div class="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-200">
+    <div class="flex items-center gap-2 text-sky-700 font-semibold text-lg">
+      <i data-lucide="sliders" class="w-5 h-5"></i>
+      <span>แผงควบคุมรายปีและพยากรณ์รายการสินค้า</span>
+    </div>
+  </div>
 
-          <div class="glass-card rounded-2xl p-4 border border-sky-100 bg-sky-50/50 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs text-slate-600">ยอดขายรวมปีเปรียบเทียบ (<span class="lblCompYear">2025</span>)</p>
-              <h3 id="kpiCompYearRev" class="text-xl font-bold text-sky-700 mt-1">฿0</h3>
-              <p id="kpiYoYGrowthBadge" class="text-[11px] font-semibold mt-0.5 text-emerald-600">YoY: +0%</p>
-            </div>
-            <div class="p-3 bg-sky-100 rounded-xl text-sky-600">
-              <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-            </div>
-          </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    
+    <!-- 1. Base Year (ปีย้อนหลัง) -->
+    <div class="space-y-1.5">
+      <label class="block text-sm font-medium text-slate-600">
+        ปีย้อนหลัง <span class="text-xs text-slate-400">(อดีต)</span>
+      </label>
+      <select
+        id="selectBaseYear"
+        onchange="handleYearChange()"
+        class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl text-sm p-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm font-medium"
+      >
+        <option value="">กำลังโหลด...</option>
+      </select>
+    </div>
 
-          <div class="glass-card rounded-2xl p-4 border border-emerald-200 bg-emerald-50/50 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs text-emerald-700 font-medium">พยากรณ์ยอดขาย (<span class="lblForecastYear">2026</span>)</p>
-              <h3 id="kpiForecastRev" class="text-xl font-bold text-emerald-700 mt-1">฿0</h3>
-              <p id="kpiForecastQty" class="text-[11px] text-emerald-600 mt-0.5">เป้าหมาย: 0 ชิ้น</p>
-            </div>
-            <div class="p-3 bg-emerald-100 rounded-xl text-emerald-700">
-              <i data-lucide="sparkles" class="w-5 h-5"></i>
-            </div>
-          </div>
+    <!-- 2. Comparison Year (ปีเปรียบเทียบ) -->
+    <div class="space-y-1.5">
+      <label class="block text-sm font-medium text-slate-600">
+        ปีเปรียบเทียบ <span class="text-xs text-sky-500 font-bold">(ปัจจุบัน)</span>
+      </label>
+      <select
+        id="selectCompYear"
+        onchange="handleYearChange()"
+        class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl text-sm p-2.5 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-sm font-medium"
+      >
+        <option value="">กำลังโหลด...</option>
+      </select>
+    </div>
 
-          <div class="glass-card rounded-2xl p-4 border border-amber-200 bg-amber-50/50 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs text-amber-800 font-medium">ความต้องการสต็อกรวมที่แนะนำ</p>
-              <h3 id="kpiRecommendedStock" class="text-xl font-bold text-amber-800 mt-1">0 ชิ้น</h3>
-              <p id="kpiUrgentSkusCount" class="text-[11px] text-amber-700 mt-0.5">🚨 สั่งซื้อด่วน: 0 รายการ</p>
+    <!-- 3. Forecast Year (ปีพยากรณ์) -->
+    <div class="space-y-1.5">
+      <label class="block text-sm font-medium text-slate-600">
+        ปีพยากรณ์ <span class="text-xs text-emerald-600 font-bold">(อนาคต)</span>
+      </label>
+      <select
+        id="selectForecastYear"
+        onchange="handleYearChange()"
+        class="w-full bg-white border border-emerald-500 text-emerald-700 rounded-xl text-sm p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-sm font-semibold"
+      >
+        <option value="">กำลังโหลด...</option>
+      </select>
+    </div>
+
+  </div>
+</section>
+
+     <!-- SECTION 2: Month & Category Filter -->
+<section class="glass-panel rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4 w-full">
+  
+  <!-- 1. ส่วนเลือกสไลซ์เดือน (Month Slicer 1-12) -->
+  <div>
+    <div class="text-sm text-slate-700 mb-2.5 font-semibold flex items-center gap-2">
+      <i data-lucide="calendar" class="w-4 h-4 text-sky-600"></i>
+      <span>เลือกสไลซ์เดือน (Month Slicer):</span>
+    </div>
+    <!-- ปุ่มสไลด์เดือน 1-12 จะถูก Render เข้ามาตรงนี้
+    <div id="monthSlicerContainer" class="flex flex-wrap gap-2"></div>
+  </div> -->
+
+  <!-- 2. ส่วนหมวดหมู่, ค้นหา และสรุปตัวกรอง -->
+  <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 pt-3 border-t border-slate-200">
+    
+    <!-- ตัวกรองหมวดหมู่สินค้า -->
+    <div class="flex items-center gap-2.5 w-full lg:w-auto">
+      <label for="selCategory" class="text-sm font-semibold text-slate-700 whitespace-nowrap flex items-center gap-1.5">
+        <i data-lucide="filter" class="w-4 h-4 text-slate-500"></i>
+        <span>หมวดหมู่สินค้า:</span>
+      </label>
+      <select
+        id="selCategory"
+        onchange="renderDashboard()"
+        class="w-full sm:w-64 bg-white border border-slate-300 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none shadow-sm transition-all cursor-pointer font-medium"
+      >
+        <option value="ALL">ทุกหมวดหมู่</option>
+      </select>
+    </div>
+
+    <!-- ช่องค้นหาสินค้า -->
+    <div class="relative flex-1 w-full">
+      <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+      <input
+        type="text"
+        id="inputSearch"
+        oninput="renderDashboard()"
+        placeholder="ค้นหาสินค้าด้วยชื่อสินค้า "
+        class="w-full bg-white border border-slate-300 text-slate-800 pl-10 pr-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none shadow-sm"
+      />
+    </div>
+
+    <!-- ข้อความสรุปสถานะการเลือกเดือน -->
+    <div
+      id="filterSummaryText"
+      class="text-sm text-slate-600 whitespace-nowrap bg-slate-100 px-4 py-2.5 rounded-xl border border-slate-200 w-full lg:w-auto text-center"
+    >
+      แสดงข้อมูล: <span class="text-sky-700 font-semibold">12 เดือนทั้งหมด</span>
+    </div>
+
+  </div>
+</section>
+     <!-- SECTION 3: KPI Executive Cards -->
+          <section
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full"
+          >
+            <div
+              class="glass-card rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm text-slate-600 font-medium">
+                  ยอดขายรวมปีฐาน (<span class="lblBaseYear">-</span>)
+                </p>
+                <h3
+                  id="kpiBaseYearRev"
+                  class="text-2xl font-bold text-slate-800 mt-1"
+                >
+                  0
+                </h3>
+                <p id="kpiBaseYearQty" class="text-xs text-slate-500 mt-1">
+                  0 ชิ้น
+                </p>
+              </div>
+              <div class="p-3.5 bg-slate-100 rounded-xl text-slate-600">
+                <i data-lucide="history" class="w-6 h-6"></i>
+              </div>
             </div>
-            <div class="p-3 bg-amber-100 rounded-xl text-amber-700">
-              <i data-lucide="package-check" class="w-5 h-5"></i>
+
+            <div
+              class="glass-card rounded-2xl p-5 border border-sky-100 bg-sky-50/50 shadow-sm flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm text-slate-600 font-medium">
+                  ยอดขายรวมปีเปรียบเทียบ (<span class="lblCompYear">-</span>)
+                </p>
+                <h3
+                  id="kpiCompYearRev"
+                  class="text-2xl font-bold text-sky-700 mt-1"
+                >
+                  0
+                </h3>
+                <p id="kpiCompYearQty" class="text-xs text-slate-500 mt-1">
+                  0 ชิ้น
+                </p>
+              </div>
+              <div class="p-3.5 bg-sky-100 rounded-xl text-sky-600">
+                <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+              </div>
             </div>
-          </div>
-        </section>
+
+            <div
+              class="glass-card rounded-2xl p-5 border border-emerald-200 bg-emerald-50/50 shadow-sm flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm text-emerald-800 font-medium">
+                  พยากรณ์ยอดขาย (<span class="lblForecastYear">-</span>)
+                </p>
+                <h3
+                  id="kpiForecastRev"
+                  class="text-2xl font-bold text-emerald-700 mt-1"
+                >
+                  0
+                </h3>
+                <p id="kpiForecastQty" class="text-xs text-emerald-600 mt-1">
+                  เป้าหมาย: 0 ชิ้น
+                </p>
+              </div>
+              <div class="p-3.5 bg-emerald-100 rounded-xl text-emerald-700">
+                <i data-lucide="sparkles" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <div
+              class="glass-card rounded-2xl p-5 border border-amber-200 bg-amber-50/50 shadow-sm flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm text-amber-900 font-medium">
+                  ความต้องการสต็อกรวมที่แนะนำ
+                </p>
+                <h3
+                  id="kpiRecommendedStock"
+                  class="text-2xl font-bold text-amber-800 mt-1"
+                >
+                  0 ชิ้น
+                </h3>
+                <p id="kpiUrgentSkusCount" class="text-xs text-amber-700 mt-1">
+                  สั่งซื้อด่วน: 0 รายการ
+                </p>
+              </div>
+              <div class="p-3.5 bg-amber-100 rounded-xl text-amber-700">
+                <i data-lucide="package-check" class="w-6 h-6"></i>
+              </div>
+            </div>
+          </section>
 
         <!-- SECTION 4: Best Seller Cards -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-          <div class="glass-panel rounded-2xl p-4 border border-slate-200 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                <i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-500"></i>
-                สินค้าขายดีที่สุด ปีฐาน (<span class="lblBaseYear">2024</span>)
-              </span>
-              <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-medium border border-slate-200">Rank #1</span>
-            </div>
-            <div id="cardBaseTopSeller" class="space-y-2"></div>
-          </div>
+<section class="grid grid-cols-1 md:grid-cols-3 gap-5 w-full">
+  
+  <!-- 1. ขายดีที่สุด ปีฐาน -->
+  <div class="glass-panel rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+        <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+        ขายดีที่สุด ปีฐาน (<span class="lblBaseYear">-</span>)
+      </span>
+      <span class="text-xs bg-slate-100 px-2.5 py-0.5 rounded text-slate-600 font-semibold border border-slate-200">
+        Rank #1
+      </span>
+    </div>
+    <div id="cardBaseTopSeller" class="space-y-2"></div>
+  </div>
 
-          <div class="glass-panel rounded-2xl p-4 border border-sky-200 bg-sky-50/30 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-xs font-semibold text-sky-800 flex items-center gap-1.5">
-                <i data-lucide="crown" class="w-3.5 h-3.5 text-sky-600"></i>
-                สินค้าขายดีที่สุด ปีเปรียบเทียบ (<span class="lblCompYear">2025</span>)
-              </span>
-              <span class="text-[10px] bg-sky-100 px-2 py-0.5 rounded text-sky-800 border border-sky-200 font-medium">Rank #1</span>
-            </div>
-            <div id="cardCompTopSeller" class="space-y-2"></div>
-          </div>
+  <!-- 2. ขายดีที่สุด ปีเปรียบเทียบ -->
+  <div class="glass-panel rounded-2xl p-5 border border-sky-200 bg-sky-50/30 shadow-sm relative overflow-hidden">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-sm font-semibold text-sky-900 flex items-center gap-1.5">
+        <i data-lucide="crown" class="w-4 h-4 text-sky-600"></i>
+        ขายดีที่สุด ปีเปรียบเทียบ (<span class="lblCompYear">-</span>)
+      </span>
+      <span class="text-xs bg-sky-100 px-2.5 py-0.5 rounded text-sky-800 border border-sky-200 font-semibold">
+        Rank #1
+      </span>
+    </div>
+    <div id="cardCompTopSeller" class="space-y-2"></div>
+  </div>
 
-          <div class="glass-panel rounded-2xl p-4 border border-emerald-200 bg-emerald-50/30 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
-                <i data-lucide="target" class="w-3.5 h-3.5 text-emerald-600"></i>
-                คาดการณ์อันดับ #1 ปีพยากรณ์ (<span class="lblForecastYear">2026</span>)
-              </span>
-              <span class="text-[10px] bg-emerald-100 px-2 py-0.5 rounded text-emerald-800 border border-emerald-200 font-medium">Predicted #1</span>
-            </div>
-            <div id="cardForecastTopSeller" class="space-y-2"></div>
-          </div>
-        </section>
+  <!-- 3. คาดการณ์อันดับ #1 ปีพยากรณ์ -->
+  <div class="glass-panel rounded-2xl p-5 border border-emerald-200 bg-emerald-50/30 shadow-sm relative overflow-hidden">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-sm font-semibold text-emerald-900 flex items-center gap-1.5">
+        <i data-lucide="target" class="w-4 h-4 text-emerald-600"></i>
+        คาดการณ์อันดับ #1 ปีพยากรณ์ (<span class="lblForecastYear">-</span>)
+      </span>
+      <span class="text-xs bg-emerald-100 px-2.5 py-0.5 rounded text-emerald-800 border border-emerald-200 font-semibold">
+        Predicted #1
+      </span>
+    </div>
+    <div id="cardForecastTopSeller" class="space-y-2"></div>
+  </div>
 
-        <!-- SECTION 5: Visualizations Grid -->
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-          <div class="lg:col-span-2 glass-panel rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
-            <div>
-              <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                <i data-lucide="line-chart" class="w-4 h-4 text-sky-600"></i>
-                แนวโน้มยอดขายรายเดือน (<span class="lblBaseYear">2024</span> vs <span class="lblCompYear">2025</span> vs พยากรณ์ <span class="lblForecastYear">2026</span>)
-              </h3>
-              <p class="text-xs text-slate-600 mt-0.5">เปรียบเทียบยอดขาย 12 เดือน และเส้นทางพยากรณ์ล่วงหน้า</p>
-            </div>
-            <div class="h-72 w-full relative">
-              <canvas id="chartMonthlyTrend"></canvas>
-            </div>
-          </div>
+</section>
 
-          <div class="glass-panel rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
-            <div>
-              <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-600"></i>
-                ยอดขายแยกตามหมวดหมู่สินค้า
-              </h3>
-              <p class="text-xs text-slate-600 mt-0.5">เปรียบเทียบ <span class="lblCompYear">2025</span> vs พยากรณ์ <span class="lblForecastYear">2026</span></p>
-            </div>
-            <div class="h-72 w-full relative">
-              <canvas id="chartCategoryBreakdown"></canvas>
-            </div>
-          </div>
-        </section>
-
-        <!-- SECTION 6: Inventory Action Table -->
-        <section class="glass-panel rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4 w-full">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-200">
-            <div>
-              <h3 class="text-base font-semibold text-slate-800 flex items-center gap-2">
-                <i data-lucide="boxes" class="w-5 h-5 text-amber-600"></i>
-                ตารางแผนการสั่งซื้อและสำรองสต็อกสินค้า (Inventory Planning & Reorder Action Plan)
-              </h3>
-              <p class="text-xs text-slate-600">วิเคราะห์ความต้องการสินค้า คำนวณ Safety Stock และแนะนำการสั่งซื้ออัตโนมัติ</p>
-            </div>
-
-            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-4 min-w-[260px]">
-              <div class="flex-1 space-y-1">
-                <div class="flex justify-between items-center text-xs">
-                  <span class="font-medium text-amber-800">Safety Buffer %:</span>
-                  <span id="lblBufferVal" class="font-bold text-amber-600">15%</span>
-                </div>
-                <input type="range" id="inputSafetyBuffer" min="5" max="30" step="5" value="15" oninput="updateSafetyBuffer(this.value)" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+          <!-- SECTION 5: Charts -->
+          <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
+            <div
+              class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between"
+            >
+              <div>
+                <h3
+                  class="text-base font-bold text-slate-800 flex items-center gap-2"
+                >
+                  <i data-lucide="line-chart" class="w-5 h-5 text-sky-600"></i>
+                  แนวโน้มยอดขายรายเดือน (<span class="lblBaseYear">-</span> vs
+                  <span class="lblCompYear">-</span> vs พยากรณ์
+                  <span class="lblForecastYear">-</span>)
+                </h3>
+                <p class="text-sm text-slate-500 mt-1">
+                  เปรียบเทียบยอดขาย 12 เดือน และเส้นทางพยากรณ์ล่วงหน้า
+                </p>
+              </div>
+              <div class="h-80 w-full relative">
+                <canvas id="chartMonthlyTrend"></canvas>
               </div>
             </div>
-          </div>
 
-          <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div class="flex items-center gap-2 flex-wrap">
-              <button onclick="filterTableByStatus('ALL')" id="tabStatusALL" class="status-tab px-3 py-1.5 rounded-lg font-medium bg-sky-600 text-white shadow-sm">ทั้งหมด</button>
-              <button onclick="filterTableByStatus('URGENT')" id="tabStatusURGENT" class="status-tab px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 border border-slate-200">🚨 สั่งซื้อด่วน</button>
-              <button onclick="filterTableByStatus('PREPARE')" id="tabStatusPREPARE" class="status-tab px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 border border-slate-200">⚠️ ควรเตรียมสต็อก</button>
-              <button onclick="filterTableByStatus('NORMAL')" id="tabStatusNORMAL" class="status-tab px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 border border-slate-200">🟢 ยอดปกติ</button>
+            <div
+              class="glass-panel rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between"
+            >
+              <div>
+                <h3
+                  class="text-base font-bold text-slate-800 flex items-center gap-2"
+                >
+                  <i
+                    data-lucide="pie-chart"
+                    class="w-5 h-5 text-indigo-600"
+                  ></i>
+                  ยอดขายแยกตามหมวดหมู่สินค้า (category)
+                </h3>
+                <p class="text-sm text-slate-500 mt-1">
+                  เปรียบเทียบ <span class="lblCompYear">-</span> vs พยากรณ์
+                  <span class="lblForecastYear">-</span>
+                </p>
+              </div>
+              <div class="h-80 w-full relative">
+                <canvas id="chartCategoryBreakdown"></canvas>
+              </div>
             </div>
-            <div class="text-xs text-slate-600">
-              แสดง <span id="lblTableRowsCount" class="font-semibold text-slate-800">0</span> รายการ
+          </section>
+
+          <!-- SECTION 6: Inventory Action Table -->
+          <section
+            class="glass-panel rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5 w-full"
+          >
+            <div
+              class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200"
+            >
+              <div>
+                <h3
+                  class="text-lg font-bold text-slate-800 flex items-center gap-2"
+                >
+                  <i data-lucide="boxes" class="w-5 h-5 text-amber-600"></i>
+                  ตารางแผนการสั่งซื้อและสำรองสต็อกสินค้า
+                </h3>
+                <p class="text-sm text-slate-500 mt-1">
+                  วิเคราะห์ความต้องการสินค้า คำนวณ Safety Buffer
+                  และแนะนำการสั่งซื้ออัตโนมัติ
+                </p>
+              </div>
+
+              <div
+                class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex items-center gap-4 min-w-[280px]"
+              >
+                <div class="flex-1 space-y-1">
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="font-medium text-amber-900"
+                      >Safety Buffer %:</span
+                    >
+                    <span id="lblBufferVal" class="font-bold text-amber-600"
+                      >15%</span
+                    >
+                  </div>
+                  <input
+                    type="range"
+                    id="inputSafetyBuffer"
+                    min="5"
+                    max="30"
+                    step="5"
+                    value="15"
+                    oninput="updateSafetyBuffer(this.value)"
+                    class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm w-full">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead class="bg-slate-100 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
-                <tr>
-                  <th class="p-3">SKU Code</th>
-                  <th class="p-3">ชื่อสินค้า & หมวดหมู่</th>
-                  <th class="p-3 text-right">ยอดขาย <span class="lblBaseYear">2024</span></th>
-                  <th class="p-3 text-right">ยอดขาย <span class="lblCompYear">2025</span></th>
-                  <th class="p-3 text-right">% YoY Growth</th>
-                  <th class="p-3 text-right text-emerald-700">พยากรณ์ <span class="lblForecastYear">2026</span></th>
-                  <th class="p-3 text-right text-amber-700">Safety Buffer</th>
-                  <th class="p-3 text-right text-sky-700 font-bold">สต็อกแนะนำรวม</th>
-                  <th class="p-3 text-center">สถานะวางแผน</th>
-                  <th class="p-3 text-center">รายละเอียด</th>
-                </tr>
-              </thead>
-              <tbody id="inventoryTableBody" class="divide-y divide-slate-200 bg-white font-normal text-slate-700"></tbody>
-              <tfoot class="bg-slate-100 font-semibold text-slate-800 border-t border-slate-300">
-                <tr id="tableFooterRow"></tr>
-              </tfoot>
-            </table>
-          </div>
-        </section>
+            <div
+              class="flex items-center justify-between flex-wrap gap-3 text-sm"
+            >
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  onclick="filterTableByStatus('ALL')"
+                  id="tabStatusALL"
+                  class="status-tab px-4 py-2 rounded-xl font-medium bg-sky-600 text-white shadow-sm"
+                >
+                  ทั้งหมด
+                </button>
+                <button
+                  onclick="filterTableByStatus('URGENT')"
+                  id="tabStatusURGENT"
+                  class="status-tab px-4 py-2 rounded-xl font-medium bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
+                >
+                  สั่งซื้อด่วน
+                </button>
+                <button
+                  onclick="filterTableByStatus('PREPARE')"
+                  id="tabStatusPREPARE"
+                  class="status-tab px-4 py-2 rounded-xl font-medium bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
+                >
+                  ควรเตรียมสต็อก
+                </button>
+                <button
+                  onclick="filterTableByStatus('NORMAL')"
+                  id="tabStatusNORMAL"
+                  class="status-tab px-4 py-2 rounded-xl font-medium bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
+                >
+                  ยอดปกติ
+                </button>
+              </div>
+              <div class="text-sm text-slate-600">
+                แสดง
+                <span id="lblTableRowsCount" class="font-bold text-slate-800"
+                  >0</span
+                >
+                รายการ
+              </div>
+            </div>
 
-      </main>
+            <div
+              class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm w-full"
+            >
+              <table class="w-full text-left text-sm border-collapse">
+                <thead
+                  class="bg-slate-100 text-slate-700 uppercase tracking-wider font-semibold border-b border-slate-200"
+                >
+                  <tr>
+                    <th class="p-3.5">product_id</th>
+                    <th class="p-3.5">ชื่อสินค้า & หมวดหมู่</th>
+                    <th class="p-3.5 text-right">
+                      ยอดขาย <span class="lblBaseYear">-</span>
+                    </th>
+                    <th class="p-3.5 text-right">
+                      ยอดขาย <span class="lblCompYear">-</span>
+                    </th>
+                    <th class="p-3.5 text-right">% YoY Growth</th>
+                    <th class="p-3.5 text-right text-emerald-700">
+                      พยากรณ์ <span class="lblForecastYear">-</span>
+                    </th>
+                    <th class="p-3.5 text-right text-amber-700">
+                      Safety Buffer
+                    </th>
+                    <th class="p-3.5 text-right text-sky-700 font-bold">
+                      สต็อกแนะนำรวม
+                    </th>
+                    <th class="p-3.5 text-center">สถานะวางแผน</th>
+                    <th class="p-3.5 text-center">รายละเอียด</th>
+                  </tr>
+                </thead>
+                <tbody
+                  id="inventoryTableBody"
+                  class="divide-y divide-slate-200 bg-white font-normal text-slate-700"
+                ></tbody>
+                <tfoot
+                  class="bg-slate-100 font-semibold text-slate-800 border-t border-slate-300"
+                >
+                  <tr id="tableFooterRow"></tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="pagination-container">
+              <button id="btnPrev" onclick="changePage(-1)" class="btn-page">
+                ก่อนหน้า
+              </button>
+              <span id="pageIndicator" class="page-info"
+                >หน้า <strong id="currentPage">1</strong> จาก
+                <strong id="totalPages">1</strong></span
+              >
+              <button id="btnNext" onclick="changePage(1)" class="btn-page">
+                ถัดไป
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
-  </div>
 
-  <!-- Product Detail Modal -->
-  <div id="productDetailModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="glass-panel w-full max-w-2xl rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-5 relative bg-white">
-      <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-600 hover:text-slate-800 p-1.5 rounded-lg bg-slate-100 transition">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
+    <!-- Modal Product Detail -->
+    <div
+      id="productDetailModal"
+      class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="glass-panel w-full max-w-2xl rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-5 relative bg-white"
+      >
+        <button
+          onclick="closeModal()"
+          class="absolute top-4 right-4 text-slate-500 hover:text-slate-800 p-2 rounded-lg bg-slate-100 transition"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
 
-      <div class="flex items-center gap-3 border-b border-slate-200 pb-4">
-        <div id="modalProductIcon" class="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center text-xl font-bold border border-sky-200">📦</div>
+        <div class="flex items-center gap-3.5 border-b border-slate-200 pb-4">
+          <div
+            id="modalProductIcon"
+            class="w-14 h-14 rounded-2xl bg-sky-50 text-sky-700 flex items-center justify-center text-2xl font-bold border border-sky-200"
+          >
+            📦
+          </div>
+          <div>
+            <span
+              id="modalProductSKU"
+              class="text-xs text-sky-700 font-mono font-semibold"
+              >product_id</span
+            >
+            <h2 id="modalProductName" class="text-xl font-bold text-slate-800">
+              ชื่อสินค้า
+            </h2>
+            <span
+              id="modalProductCategory"
+              class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded border border-slate-200"
+              >หมวดหมู่</span
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <p class="text-xs text-slate-500">
+              ยอดขายปีฐาน (<span class="lblBaseYear">-</span>)
+            </p>
+            <p
+              id="modalBaseUnits"
+              class="text-base font-bold text-slate-800 mt-1"
+            >
+              0 ชิ้น
+            </p>
+          </div>
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <p class="text-xs text-slate-500">
+              ยอดขายปีเปรียบเทียบ (<span class="lblCompYear">-</span>)
+            </p>
+            <p
+              id="modalCompUnits"
+              class="text-base font-bold text-sky-700 mt-1"
+            >
+              0 ชิ้น
+            </p>
+          </div>
+          <div class="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200">
+            <p class="text-xs text-emerald-700">
+              พยากรณ์ (<span class="lblForecastYear">-</span>)
+            </p>
+            <p
+              id="modalForecastUnits"
+              class="text-base font-bold text-emerald-800 mt-1"
+            >
+              0 ชิ้น
+            </p>
+          </div>
+        </div>
+
         <div>
-          <span id="modalProductSKU" class="text-xs text-sky-700 font-mono font-semibold">SKU-000</span>
-          <h2 id="modalProductName" class="text-lg font-bold text-slate-800">ชื่อสินค้า</h2>
-          <span id="modalProductCategory" class="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">หมวดหมู่</span>
+          <h4 class="text-sm font-semibold text-slate-700 mb-2">
+            กราฟเปรียบเทียบรายเดือนสินค้าชิ้นนี้ (12 Months Pattern)
+          </h4>
+          <div class="h-52 w-full">
+            <canvas id="modalChartSingleProduct"></canvas>
+          </div>
         </div>
-      </div>
 
-      <div class="grid grid-cols-3 gap-3 text-center">
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-          <p class="text-[11px] text-slate-600">ยอดขายปีฐาน (<span class="lblBaseYear">2024</span>)</p>
-          <p id="modalBaseUnits" class="text-sm font-bold text-slate-800 mt-1">0 ชิ้น</p>
-        </div>
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-          <p class="text-[11px] text-slate-600">ยอดขายปีเปรียบเทียบ (<span class="lblCompYear">2025</span>)</p>
-          <p id="modalCompUnits" class="text-sm font-bold text-sky-700 mt-1">0 ชิ้น</p>
-        </div>
-        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-          <p class="text-[11px] text-emerald-700">พยากรณ์ (<span class="lblForecastYear">2026</span>)</p>
-          <p id="modalForecastUnits" class="text-sm font-bold text-emerald-800 mt-1">0 ชิ้น</p>
-        </div>
+        <div
+          id="modalStockActionBox"
+          class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between text-sm text-amber-900"
+        ></div>
       </div>
-
-      <div>
-        <h4 class="text-xs font-semibold text-slate-700 mb-2">กราฟเปรียบเทียบรายเดือนสินค้าชิ้นนี้ (12 Months Pattern)</h4>
-        <div class="h-48 w-full">
-          <canvas id="modalChartSingleProduct"></canvas>
-        </div>
-      </div>
-
-      <div id="modalStockActionBox" class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between text-xs text-amber-900"></div>
     </div>
-  </div>
 
-  <!-- Toast Notification -->
-  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-white text-slate-800 border border-slate-200 px-4 py-3 rounded-xl shadow-xl flex items-center gap-3">
-    <i data-lucide="info" class="w-5 h-5 text-sky-600"></i>
-    <span id="toastMessage" class="text-xs font-medium">ข้อความแจ้งเตือน</span>
-  </div>
+    <!-- Toast Notification -->
+    <div
+      id="toastNotification"
+      class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-white text-slate-800 border border-slate-200 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3"
+    >
+      <i data-lucide="info" class="w-5 h-5 text-sky-600"></i>
+      <span id="toastMessage" class="text-sm font-medium"
+        >ข้อความแจ้งเตือน</span
+      >
+    </div>
+<script>
+  /* ==========================================================================
+   1. CONSTANTS, GLOBAL VARIABLES & API ENDPOINTS
+   ========================================================================== */
+const API_BASE = "http://localhost:5001";
 
-  <!-- JavaScript Core Logic -->
-  <script>
-    /* ==========================================================================
-       1. CONSTANTS & API CONFIGURATION
-       ========================================================================== */
-    const MONTH_NAMES = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-    const FULL_MONTH_NAMES = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+// ฟังก์ชันล้าง ID กลาง
+const normId = (id) => String(id ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
-    const API_BASE_URL = '/api';
-    const API_ENDPOINTS = {
-      categories: `${API_BASE_URL}/categories`,
-      products: `${API_BASE_URL}/products`
-    };
+const API_ENDPOINTS = {
+  categoryData: '/api/categories',
+  productData: '/api/products/dashboard-summary',
+  productDetail: '/api/products/dashboard-summary-2568',
+  productDetail2569: '/api/products/sale_detail',
+  productSales: '/api/products/risk-growth',
+  stockRecommendation2570: '/api/products/stock-recommendation-2570',
+  summaryByYear: '/api/products/summary-by-year/:year'
+};
 
-    let MASTER_CATEGORIES = [];
-    let MASTER_PRODUCTS = [];
+const MONTH_NAMES = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const FULL_MONTH_NAMES = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-    // MOCK DATA (สำหรับกรณีที่ยังไม่ได้ต่อ Database สื่อสารจริง)
-    const MOCK_CATEGORIES = [
-      { category_id: "CAT-01", category_name: "เครื่องดื่ม" },
-      { category_id: "CAT-02", category_name: "อาหารแห้ง" },
-      { category_id: "CAT-03", category_name: "ของใช้ในบ้าน" }
-    ];
+// ดัชนีกระจายตัวตามฤดูกาล (Seasonality Weights) ป้องกันกราฟเป็นเส้นตรงกรณีไม่มีข้อมูลรายเดือน
+const SEASONALITY_WEIGHTS = [0.08, 0.07, 0.09, 0.11, 0.08, 0.07, 0.08, 0.09, 0.08, 0.07, 0.08, 0.10];
 
-    const MOCK_PRODUCTS = [
-      {
-        product_id: 1,
-        sku: "BEV-001",
-        product_name: "กาแฟพร้อมดื่ม อาราบิก้า 250ml",
-        category_id: "CAT-01",
-        unit_price: 35.00,
-        current_stock: 450,
-        reorder_point: 100,
-        icon: "☕",
-        sales_history: [
-          { year: 2023, month: 1, units_sold: 1530 }, { year: 2023, month: 2, units_sold: 1390 }, { year: 2023, month: 3, units_sold: 1670 },
-          { year: 2023, month: 4, units_sold: 1950 }, { year: 2023, month: 5, units_sold: 1810 }, { year: 2023, month: 6, units_sold: 1530 },
-          { year: 2023, month: 7, units_sold: 1390 }, { year: 2023, month: 8, units_sold: 1390 }, { year: 2023, month: 9, units_sold: 1250 },
-          { year: 2023, month: 10, units_sold: 1390 }, { year: 2023, month: 11, units_sold: 1530 }, { year: 2023, month: 12, units_sold: 1810 },
-          
-          { year: 2024, month: 1, units_sold: 1800 }, { year: 2024, month: 2, units_sold: 1630 }, { year: 2024, month: 3, units_sold: 1960 },
-          { year: 2024, month: 4, units_sold: 2290 }, { year: 2024, month: 5, units_sold: 2130 }, { year: 2024, month: 6, units_sold: 1800 },
-          { year: 2024, month: 7, units_sold: 1630 }, { year: 2024, month: 8, units_sold: 1630 }, { year: 2024, month: 9, units_sold: 1470 },
-          { year: 2024, month: 10, units_sold: 1630 }, { year: 2024, month: 11, units_sold: 1800 }, { year: 2024, month: 12, units_sold: 2130 },
+const STATUS_UI = {
+  URGENT: { text: "สั่งซื้อด่วน", cls: "bg-red-100 text-red-700 border-red-200" },
+  PREPARE: { text: "ควรเตรียมสต็อก", cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  NORMAL: { text: "ยอดปกติ", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" }
+};
 
-          { year: 2025, month: 1, units_sold: 2120 }, { year: 2025, month: 2, units_sold: 1920 }, { year: 2025, month: 3, units_sold: 2310 },
-          { year: 2025, month: 4, units_sold: 2700 }, { year: 2025, month: 5, units_sold: 2510 }, { year: 2025, month: 6, units_sold: 2120 },
-          { year: 2025, month: 7, units_sold: 1920 }, { year: 2025, month: 8, units_sold: 1920 }, { year: 2025, month: 9, units_sold: 1730 },
-          { year: 2025, month: 10, units_sold: 1920 }, { year: 2025, month: 11, units_sold: 2120 }, { year: 2025, month: 12, units_sold: 2510 }
-        ]
-      },
-      {
-        product_id: 2,
-        sku: "DRY-001",
-        product_name: "บะหมี่กึ่งสำเร็จรูป รสต้มยำกุ้ง (แพ็ค 10)",
-        category_id: "CAT-02",
-        unit_price: 68.00,
-        current_stock: 800,
-        reorder_point: 200,
-        icon: "🍜",
-        sales_history: [
-          { year: 2023, month: 1, units_sold: 1650 }, { year: 2023, month: 2, units_sold: 1510 }, { year: 2023, month: 3, units_sold: 1380 },
-          { year: 2023, month: 4, units_sold: 1240 }, { year: 2023, month: 5, units_sold: 1380 }, { year: 2023, month: 6, units_sold: 1380 },
-          { year: 2023, month: 7, units_sold: 1510 }, { year: 2023, month: 8, units_sold: 1650 }, { year: 2023, month: 9, units_sold: 1650 },
-          { year: 2023, month: 10, units_sold: 1510 }, { year: 2023, month: 11, units_sold: 1380 }, { year: 2023, month: 12, units_sold: 1790 },
+let MASTER_CATEGORIES = [];
+let MASTER_PRODUCTS = [];
+let categoryMap = new Map();
 
-          { year: 2024, month: 1, units_sold: 1800 }, { year: 2024, month: 2, units_sold: 1650 }, { year: 2024, month: 3, units_sold: 1500 },
-          { year: 2024, month: 4, units_sold: 1350 }, { year: 2024, month: 5, units_sold: 1500 }, { year: 2024, month: 6, units_sold: 1500 },
-          { year: 2024, month: 7, units_sold: 1650 }, { year: 2024, month: 8, units_sold: 1800 }, { year: 2024, month: 9, units_sold: 1800 },
-          { year: 2024, month: 10, units_sold: 1650 }, { year: 2024, month: 11, units_sold: 1500 }, { year: 2024, month: 12, units_sold: 1950 },
+let mapSales2024 = new Map();
+let mapSales2025 = new Map();
+let mapSales2026 = new Map();
 
-          { year: 2025, month: 1, units_sold: 1940 }, { year: 2025, month: 2, units_sold: 1780 }, { year: 2025, month: 3, units_sold: 1620 },
-          { year: 2025, month: 4, units_sold: 1460 }, { year: 2025, month: 5, units_sold: 1620 }, { year: 2025, month: 6, units_sold: 1620 },
-          { year: 2025, month: 7, units_sold: 1780 }, { year: 2025, month: 8, units_sold: 1940 }, { year: 2025, month: 9, units_sold: 1940 },
-          { year: 2025, month: 10, units_sold: 1780 }, { year: 2025, month: 11, units_sold: 1620 }, { year: 2025, month: 12, units_sold: 2100 }
-        ]
-      },
-      {
-        product_id: 3,
-        sku: "HOME-001",
-        product_name: "น้ำยาซักผ้า สูตรเข้มข้น 700ml",
-        category_id: "CAT-03",
-        unit_price: 89.00,
-        current_stock: 310,
-        reorder_point: 80,
-        icon: "🧴",
-        sales_history: [
-          { year: 2023, month: 1, units_sold: 800 }, { year: 2023, month: 2, units_sold: 820 }, { year: 2023, month: 3, units_sold: 850 },
-          { year: 2023, month: 4, units_sold: 900 }, { year: 2023, month: 5, units_sold: 880 }, { year: 2023, month: 6, units_sold: 870 },
-          { year: 2023, month: 7, units_sold: 890 }, { year: 2023, month: 8, units_sold: 910 }, { year: 2023, month: 9, units_sold: 920 },
-          { year: 2023, month: 10, units_sold: 940 }, { year: 2023, month: 11, units_sold: 950 }, { year: 2023, month: 12, units_sold: 1000 },
+const state = {
+  baseYear: 2024,      
+  compYear: 2025,      
+  forecastYear: 2026,  
+  selectedMonth: "ALL",
+  selectedCategory: "ALL",
+  searchQuery: "",
+  safetyBufferPct: 15,
+  statusFilter: "ALL"
+};
 
-          { year: 2024, month: 1, units_sold: 950 }, { year: 2024, month: 2, units_sold: 980 }, { year: 2024, month: 3, units_sold: 1020 },
-          { year: 2024, month: 4, units_sold: 1100 }, { year: 2024, month: 5, units_sold: 1050 }, { year: 2024, month: 6, units_sold: 1040 },
-          { year: 2024, month: 7, units_sold: 1080 }, { year: 2024, month: 8, units_sold: 1120 }, { year: 2024, month: 9, units_sold: 1150 },
-          { year: 2024, month: 10, units_sold: 1180 }, { year: 2024, month: 11, units_sold: 1200 }, { year: 2024, month: 12, units_sold: 1280 },
+let currentPage = 1;
+const rowsPerPage = 15;
+let currentTableData = [];
 
-          { year: 2025, month: 1, units_sold: 1150 }, { year: 2025, month: 2, units_sold: 1200 }, { year: 2025, month: 3, units_sold: 1250 },
-          { year: 2025, month: 4, units_sold: 1350 }, { year: 2025, month: 5, units_sold: 1300 }, { year: 2025, month: 6, units_sold: 1280 },
-          { year: 2025, month: 7, units_sold: 1320 }, { year: 2025, month: 8, units_sold: 1380 }, { year: 2025, month: 9, units_sold: 1400 },
-          { year: 2025, month: 10, units_sold: 1450 }, { year: 2025, month: 11, units_sold: 1480 }, { year: 2025, month: 12, units_sold: 1600 }
-        ]
-      }
-    ];
+let chartMonthlyTrendInstance = null;
+let chartCategoryBreakdownInstance = null;
+let modalSingleChartInstance = null;
 
-    // Global State
-    const state = {
-      baseYear: "2024",
-      compYear: "2025",
-      forecastYear: "2026",
-      forecastModel: "cagr",
-      targetGrowthAdj: 10,
-      selectedMonth: "ALL",
-      selectedCategory: "ALL",
-      searchQuery: "",
-      safetyBufferPct: 15,
-      statusFilter: "ALL"
-    };
+function parseYear(val) {
+  if (!val) return 2024;
+  const match = String(val).match(/\d{4}/);
+  if (!match) return 2024;
+  const yr = parseInt(match[0], 10);
+  return yr > 2500 ? yr - 543 : yr;
+}
 
-    let chartMonthlyTrendInstance = null;
-    let chartCategoryBreakdownInstance = null;
-    let modalSingleChartInstance = null;
+function toNumber(val) {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/,/g, "").trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
 
-    /* ==========================================================================
-       2. API FETCHING SERVICES
-       ========================================================================== */
-    async function loadCategoriesFromAPI() {
-      try {
-        const response = await fetch(API_ENDPOINTS.categories);
-        if (!response.ok) throw new Error('API Response Error');
-        MASTER_CATEGORIES = await response.json();
-      } catch (err) {
-        console.warn('ดึงข้อมูล API หมวดหมู่ไม่สำเร็จ สลับใช้ Mock Data:', err);
-        MASTER_CATEGORIES = MOCK_CATEGORIES;
-      }
-      populateCategoryDropdown();
+function formatYearLabel(y) {
+  if (!y) return "-";
+  return String(y);
+}
+
+function escapeHtml(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[c]);
+}
+
+function setSalesMap(targetMap, rawId, qty, price, amt) {
+  if (rawId === undefined || rawId === null || rawId === "") return;
+  const key = normId(rawId);
+  if (!key) return;
+
+  const prev = targetMap.get(key) || { qty: 0, amount: 0, lastPrice: 0, monthlyQty: new Array(12).fill(0) };
+  targetMap.set(key, {
+    qty: prev.qty + qty,
+    amount: prev.amount + amt,
+    lastPrice: price || prev.lastPrice,
+    monthlyQty: prev.monthlyQty
+  });
+}
+
+async function fetchTable(url) {
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const text = await res.text();
+
+    if (!res.ok) {
+      console.warn(`${url} HTTP ${res.status}`);
+      return [];
     }
 
-    async function loadProductsFromAPI() {
-      try {
-        const response = await fetch(API_ENDPOINTS.products);
-        if (!response.ok) throw new Error('API Response Error');
-        MASTER_PRODUCTS = await response.json();
-      } catch (err) {
-        console.warn('ดึงข้อมูล API สินค้าไม่สำเร็จ สลับใช้ Mock Data:', err);
-        MASTER_PRODUCTS = MOCK_PRODUCTS;
-      }
-      renderDashboard();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.warn(`${url} ไม่ได้ตอบกลับเป็น JSON`);
+      return [];
     }
 
-    function getCategoryNameById(catId) {
-      const c = MASTER_CATEGORIES.find(cat => cat.category_id === catId);
-      return c ? c.category_name : "ทั่วไป";
+    if (Array.isArray(json)) return json;
+
+    for (const key of ["data", "rows", "result", "products", "categories", "sales"]) {
+      if (Array.isArray(json?.[key])) return json[key];
     }
+    return [];
+  } catch (err) {
+    console.error(`Fetch error for ${url}:`, err);
+    return [];
+  }
+}
 
-    /* ==========================================================================
-       3. ENGINE COMPUTE & FORECAST LOGIC
-       ========================================================================== */
-    function computeProductSales(prod, yearStr, monthIdx = null) {
-      const targetYear = parseInt(yearStr);
-      const filtered = (prod.sales_history || []).filter(s => s.year === targetYear);
+function populateYearSelectors() {
+  const selBase = document.getElementById("selectBaseYear");
+  const selComp = document.getElementById("selectCompYear");
+  const selFc = document.getElementById("selectForecastYear");
 
-      if (monthIdx !== null && monthIdx >= 0 && monthIdx < 12) {
-        const monthMatch = filtered.find(s => s.month === (monthIdx + 1));
-        const units = monthMatch ? monthMatch.units_sold : 0;
-        return { units, revenue: units * prod.unit_price };
-      }
+  if (selBase) {
+    selBase.innerHTML = `
+      <option value="2024" ${state.baseYear == 2024 ? "selected" : ""}>2024</option>
+      <option value="2025" ${state.baseYear == 2025 ? "selected" : ""}>2025</option>
+      <option value="2026" ${state.baseYear == 2026 ? "selected" : ""}>2026</option>  
+    `;
+  }
+  
+  if (selComp) {
+    selComp.innerHTML = `
+      <option value="2025" ${state.compYear == 2025 ? "selected" : ""}>2025</option>
+      <option value="2026" ${state.compYear == 2026 ? "selected" : ""}>2026</option>
+    `;
+  }
 
-      const totalUnits = filtered.reduce((acc, curr) => acc + curr.units_sold, 0);
-      return { units: totalUnits, revenue: totalUnits * prod.unit_price };
+  if (selFc) {
+    selFc.innerHTML = `
+      <option value="2026" ${state.forecastYear == 2026 ? "selected" : ""}>2026</option>
+      <option value="2027" ${state.forecastYear == 2027 ? "selected" : ""}>2027</option>
+    `;
+  }
+
+  updateYearLabels();
+}
+
+function handleYearChange() {
+  const selBase = document.getElementById("selectBaseYear");
+  const selComp = document.getElementById("selectCompYear");
+  const selFc   = document.getElementById("selectForecastYear");
+
+  if (selBase) state.baseYear = parseYear(selBase.value);
+  if (selComp) state.compYear = parseYear(selComp.value);
+  if (selFc)   state.forecastYear = parseYear(selFc.value);
+
+  updateYearLabels();
+  renderDashboard();
+}
+
+function updateYearLabels() {
+  const bYr = formatYearLabel(state.baseYear);
+  const cYr = formatYearLabel(state.compYear);
+  const fYr = formatYearLabel(state.forecastYear);
+
+  document.querySelectorAll("#lblBaseYear, .lblBaseYear, .lbl-base-year").forEach(el => el.textContent = bYr);
+  document.querySelectorAll("#lblCompYear, .lblCompYear, .lbl-comp-year").forEach(el => el.textContent = cYr);
+  document.querySelectorAll("#lblForecastYear, .lblForecastYear, .lbl-fc-year").forEach(el => el.textContent = fYr);
+}
+
+/* ==========================================================================
+   3. CALCULATION LOGIC (ปรับปรุงฟังก์ชันกระจายสัดส่วนกราฟ)
+   ========================================================================== */
+function getSalesDataByYear(prod, year) {
+  let salesMap = mapSales2024;
+  const yr = String(year);
+  
+  if (yr === "2025" || yr === "2568") {
+    salesMap = mapSales2025;
+  } else if (yr === "2026" || yr === "2569") {
+    salesMap = mapSales2026;
+  } else if (yr === "2024" || yr === "2567") {
+    salesMap = mapSales2024;
+  }
+
+  const rawId = prod.product_id || prod.sku || prod.id || "";
+  const key = normId(rawId);
+  const sales = salesMap.get(key) || { qty: 0, amount: 0, lastPrice: 0, monthlyQty: new Array(12).fill(0) };
+
+  return { 
+    units: sales.qty, 
+    revenue: sales.amount,
+    monthlyQty: sales.monthlyQty || new Array(12).fill(0)
+  };
+}
+
+function computeProductForecast(product, baseYear, compYear, forecastYear, monthIdx = null) {
+  let salesY1 = getSalesDataByYear(product, baseYear);
+  let salesY2 = getSalesDataByYear(product, compYear);
+  let salesY3 = getSalesDataByYear(product, forecastYear);
+  
+  let fcUnitsTotal = 0;
+
+  if (forecastYear === 2027) {
+    fcUnitsTotal = Number(product.forecast_2027_qty || salesY3.units || 0);
+  } else if (forecastYear === 2026) {
+    fcUnitsTotal = Number(product.forecast_2026_qty || salesY3.units || 0);
+  } else {
+    fcUnitsTotal = Number(salesY3.units || 0);
+  }
+
+  let fcUnits = fcUnitsTotal;
+
+  //  ปรับแก้ไม่ให้กราฟวิ่งเป็นเส้นตรง: คำนวณกระจายยอดตาม Seasonality Weight หรือข้อมูลรายเดือน
+  if (monthIdx !== null && monthIdx !== undefined && monthIdx !== "ALL") {
+    const idx = parseInt(monthIdx, 10);
+    const weight = SEASONALITY_WEIGHTS[idx] || (1 / 12);
+
+    // ปีฐาน (Base Year)
+    const mQtyY1 = salesY1.monthlyQty[idx] > 0 ? salesY1.monthlyQty[idx] : Math.round(salesY1.units * weight);
+    salesY1 = { units: mQtyY1, revenue: mQtyY1 * parseFloat(product.unit_price || 0) };
+
+    // ปีเปรียบเทียบ (Comp Year)
+    const mQtyY2 = salesY2.monthlyQty[idx] > 0 ? salesY2.monthlyQty[idx] : Math.round(salesY2.units * weight);
+    salesY2 = { units: mQtyY2, revenue: mQtyY2 * parseFloat(product.unit_price || 0) };
+
+    // พยากรณ์ (Forecast Year)
+    if (Array.isArray(product.monthly_forecast) && product.monthly_forecast[idx] > 0) {
+      fcUnits = product.monthly_forecast[idx];
+    } else {
+      fcUnits = Math.round(fcUnitsTotal * weight);
     }
+  }
 
-    function computeProductForecast(prod, baseYr, compYr, fcYr, monthIdx = null) {
-      const salesY1 = computeProductSales(prod, baseYr, monthIdx);
-      const salesY2 = computeProductSales(prod, compYr, monthIdx);
+  const safetyBufferUnits = fcUnits * (state.safetyBufferPct / 100);
+  const totalRecommendedStock = fcUnits + safetyBufferUnits;
+  const currentStock = Number(product.current_stock || product.stock || 0);
+  
+  let status = "NORMAL";
+  if (currentStock < totalRecommendedStock * 0.5) {
+    status = "URGENT";
+  } else if (currentStock < totalRecommendedStock) {
+    status = "PREPARE";
+  }
 
-      let historicalGrowthRate = 0;
-      if (salesY1.units > 0) {
-        historicalGrowthRate = (salesY2.units - salesY1.units) / salesY1.units;
+  return {
+    salesY1,
+    salesY2,
+    salesY3,
+    baseSales: salesY1,
+    compSales: salesY2,
+    fcUnits,
+    fcRevenue: fcUnits * parseFloat(product.unit_price || 0),
+    fcGrowthPct: parseFloat(product.ai_growth_pct || 0),
+    safetyBufferUnits,
+    totalRecommendedStock,
+    status
+  };
+}
+
+/* ==========================================================================
+   4. FETCH & MAP DATA FROM DB (เก็บข้อมูลรายเดือนเข้า Sales Map)
+   ========================================================================== */
+async function loadCategoriesFromAPI() {
+  try {
+    const rows = await fetchTable(API_ENDPOINTS.categoryData);
+    if (Array.isArray(rows) && rows.length > 0) {
+      categoryMap.clear();
+      MASTER_CATEGORIES = rows.map((r) => {
+        const id = normId(r.category_id);
+        const name = String(r.category_name ?? "").trim() || `หมวดหมู่ ${id}`;
+        if (id) categoryMap.set(id, name);
+        return { category_id: id, category_name: name };
+      });
+    }
+  } catch (err) {
+    console.error("เกิดข้อผิดพลาดในการดึงหมวดหมู่:", err);
+  } finally {
+    populateCategoryDropdown();
+  }
+}
+
+async function loadProductsFromAPI() {
+  try {
+    const results = await Promise.allSettled([
+      fetchTable(API_ENDPOINTS.productData),           
+      fetchTable(API_ENDPOINTS.productDetail),          
+      fetchTable(API_ENDPOINTS.productDetail2569),      
+      fetchTable(API_ENDPOINTS.productSales),            
+      fetchTable(API_ENDPOINTS.stockRecommendation2570), 
+      fetchTable(API_ENDPOINTS.summaryByYear.replace(":year", "2024")), 
+      fetchTable(API_ENDPOINTS.summaryByYear.replace(":year", "2025")), 
+      fetchTable(API_ENDPOINTS.summaryByYear.replace(":year", "2026"))  
+    ]);
+
+    const productRows        = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
+    const sales2025Rows      = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+    const sales2026Rows      = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [];
+    const riskGrowthRows     = results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [];
+    const stockRecommendRows = results[4].status === 'fulfilled' && Array.isArray(results[4].value) ? results[4].value : [];
+
+    if (typeof mapSales2024 !== 'undefined') mapSales2024.clear();
+    if (typeof mapSales2025 !== 'undefined') mapSales2025.clear();
+    if (typeof mapSales2026 !== 'undefined') mapSales2026.clear();
+
+    const readPrice = (obj) => toNumber(obj?.unit_price ?? obj?.UNIT_PRICE ?? obj?.price ?? obj?.PRICE ?? 0);
+
+    sales2025Rows.forEach((r) => {
+      const rawId = r.product_id || r.PRODUCT_ID || r.sku || r.id;
+      const key = normId(rawId);
+      const qty   = toNumber(r.total_qty ?? r.sold_qty ?? r.sales_qty ?? r.quantity ?? 0);
+      const price = toNumber(r.avg_unit_price ?? r.unit_price ?? r.price ?? 0);
+      const amt   = toNumber(r.total_sales ?? r.total_revenue ?? r.sales_amount ?? 0);
+
+      let monthlyQty = new Array(12).fill(0);
+      if (Array.isArray(r.sales_history)) {
+        r.sales_history.forEach(h => {
+          const m = (parseInt(h.month, 10) || 1) - 1;
+          if (m >= 0 && m < 12) monthlyQty[m] += toNumber(h.units_sold || h.quantity || 0);
+        });
       }
 
-      let modelFactor = 1.0 + historicalGrowthRate;
-      if (state.forecastModel === "linear") {
-        modelFactor = 1.0 + (historicalGrowthRate * 0.95);
-      } else if (state.forecastModel === "weighted") {
-        modelFactor = 1.0 + (historicalGrowthRate * 1.10);
+      if (key) {
+        mapSales2025.set(key, { qty, amount: amt, lastPrice: price, monthlyQty });
+      }
+    });
+
+    sales2026Rows.forEach((r) => {
+      const rawId = r.product_id || r.PRODUCT_ID || r.product_code || r.sku || r.id;
+      const key = normId(rawId);
+      const qty   = toNumber(r.total_quantity ?? r.total_qty ?? r.sold_qty ?? r.sales_qty ?? r.quantity ?? r.units_sold ?? 0);
+      const amt   = toNumber(r.total_sales ?? r.total_amount ?? r.sales_amount ?? r.total_revenue ?? r.revenue ?? 0);
+      let price = toNumber(r.avg_unit_price ?? r.unit_price ?? r.price ?? 0);
+
+      let monthlyQty = new Array(12).fill(0);
+      if (Array.isArray(r.sales_history)) {
+        r.sales_history.forEach(h => {
+          const m = (parseInt(h.month, 10) || 1) - 1;
+          if (m >= 0 && m < 12) monthlyQty[m] += toNumber(h.units_sold || h.sales_amount || 0);
+        });
       }
 
-      const targetAdjFactor = 1.0 + (state.targetGrowthAdj / 100);
-      let fcUnits = Math.round(salesY2.units * modelFactor * targetAdjFactor);
-      if (fcUnits < 0) fcUnits = 0;
-
-      const fcRevenue = fcUnits * prod.unit_price;
-      const safetyBufferUnits = Math.round(fcUnits * (state.safetyBufferPct / 100));
-      const totalRecommendedStock = fcUnits + safetyBufferUnits;
-      const fcGrowthPct = salesY2.units > 0 ? ((fcUnits - salesY2.units) / salesY2.units) * 100 : 0;
-
-      let status = "NORMAL";
-      if (fcGrowthPct >= 20 || totalRecommendedStock > 20000) {
-        status = "URGENT";
-      } else if (fcGrowthPct >= 8 || totalRecommendedStock > 10000) {
-        status = "PREPARE";
+      if (key) {
+        mapSales2026.set(key, { qty, amount: amt, lastPrice: price, monthlyQty });
       }
+    });
+
+    const mapRiskGrowth = new Map();
+    riskGrowthRows.forEach((r) => {
+      const rawId = r.product_id || r.product_code || r.sku || r.id;
+      const key   = typeof normId === 'function' ? normId(rawId) : String(rawId);
+      if (key) {
+        mapRiskGrowth.set(key, {
+          forecast_qty: toNumber(r.forecast_qty_2027 ?? r.forecast_qty ?? r.forecast_2027 ?? 0),
+          growth_pct: toNumber(r.growth_pct_2027 ?? r.growth_pct ?? 0),
+          recommended_stock: toNumber(r.recommended_stock ?? r.forecast_total ?? 0)
+        });
+      }
+    });
+
+    const mapStockRec = new Map();
+    stockRecommendRows.forEach((r) => {
+      const key = normId(r.product_id || r.category_id || r.id);
+      if (key && Array.isArray(r.monthly_forecast)) {
+        mapStockRec.set(key, r.monthly_forecast);
+      }
+    });
+
+    MASTER_PRODUCTS = productRows.map((p) => {
+      const rawPid = p.product_id || p.sku || p.id || p.product_code || "";
+      const pid    = typeof normId === 'function' ? normId(rawPid) : String(rawPid);
+
+      const catId   = typeof normId === 'function' ? normId(p.category_id || p.cat_id) : p.category_id;
+      const catName = (typeof categoryMap !== 'undefined' && categoryMap.get(catId)) || p.category_name || "ไม่ระบุหมวดหมู่";
+
+      let sumQty2024 = 0;
+      let sumAmt2024 = 0;
+      let monthlyQty2024 = new Array(12).fill(0);
+
+      if (Array.isArray(p.sales_history) && p.sales_history.length > 0) {
+        p.sales_history.forEach((h) => {
+          const q = toNumber(h.units_sold || h.sales_qty || h.quantity || 0);
+          const pr = toNumber(h.unit_price || p.price || 0);
+          const a = toNumber(h.sales_amount || h.total_sales || (q * pr));
+          const m = (parseInt(h.month, 10) || 1) - 1;
+          if (m >= 0 && m < 12) monthlyQty2024[m] += q;
+          sumQty2024 += q;
+          sumAmt2024 += a;
+        });
+      } else {
+        sumQty2024 = toNumber(p.sold_qty || p.sales_2024 || p.quantity_sold || p.total_qty || 0);
+        sumAmt2024 = toNumber(p.sales_amount_2024 || p.total_amount || (sumQty2024 * readPrice(p)));
+      }
+
+      if (typeof mapSales2024 !== 'undefined') {
+        mapSales2024.set(pid, {
+          qty: sumQty2024,
+          amount: sumAmt2024,
+          lastPrice: readPrice(p),
+          monthlyQty: monthlyQty2024
+        });
+      }
+
+      const s2025 = (typeof mapSales2025 !== 'undefined' && mapSales2025.get(pid)) || { qty: 0, amount: 0, lastPrice: 0 };
+      const s2026 = (typeof mapSales2026 !== 'undefined' && mapSales2026.get(pid)) || { qty: 0, amount: 0, lastPrice: 0 };
+
+      let price = readPrice(p) || (sumQty2024 > 0 ? sumAmt2024 / sumQty2024 : 0) || s2025.lastPrice || s2026.lastPrice;
+
+      const rg = mapRiskGrowth.get(pid);
+      const baseQty = s2025.qty > 0 ? s2025.qty : (s2026.qty > 0 ? s2026.qty : 10); 
+
+      let rawFcQty = (rg && rg.forecast_qty !== undefined && rg.forecast_qty !== null) 
+        ? Number(rg.forecast_qty) 
+        : (baseQty * 1.05);
+
+      if (isNaN(rawFcQty) || rawFcQty > baseQty * 3) {
+        rawFcQty = baseQty * 1.5; 
+      }
+
+      const fcQty2027 = Math.max(0, rawFcQty);
+      const fcQty2026 = s2026.qty > 0 ? s2026.qty : (s2025.qty * 1.05);
+
+      const recStock2027 = Math.ceil(fcQty2027 * 1.1); 
 
       return {
-        salesY1,
-        salesY2,
-        fcUnits,
-        fcRevenue,
-        fcGrowthPct,
-        safetyBufferUnits,
-        totalRecommendedStock,
-        status,
-        unitPrice: prod.unit_price
-      };
-    }
-
-    /* ==========================================================================
-       4. UI INITIALIZATION & CONTROLS
-       ========================================================================== */
-    function populateCategoryDropdown() {
-      const select = document.getElementById("selectCategory");
-      select.innerHTML = `<option value="ALL">หมวดหมู่ทั้งหมด (${MASTER_CATEGORIES.length} หมวด)</option>`;
-      MASTER_CATEGORIES.forEach(cat => {
-        const opt = document.createElement("option");
-        opt.value = cat.category_id;
-        opt.innerText = cat.category_name;
-        select.appendChild(opt);
-      });
-    }
-
-    function initMonthSlicer() {
-      const container = document.getElementById("monthSlicerContainer");
-      container.innerHTML = "";
-
-      const allBtn = document.createElement("button");
-      allBtn.type = "button";
-      allBtn.className = `month-pill text-xs px-3 py-1.5 rounded-lg transition font-medium border ${
-        state.selectedMonth === "ALL"
-          ? "bg-sky-600 text-white border-sky-600 shadow-sm"
-          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-      }`;
-      allBtn.innerText = "ทั้งหมด (12 เดือน)";
-      allBtn.onclick = () => selectMonth("ALL");
-      container.appendChild(allBtn);
-
-      MONTH_NAMES.forEach((mName, idx) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = `month-pill text-xs px-2.5 py-1.5 rounded-lg transition font-medium border ${
-          state.selectedMonth === idx
-            ? "bg-sky-600 text-white border-sky-600 shadow-sm"
-            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-        }`;
-        btn.innerText = mName;
-        btn.onclick = () => selectMonth(idx);
-        container.appendChild(btn);
-      });
-    }
-
-    function selectMonth(mVal) {
-      state.selectedMonth = mVal;
-      initMonthSlicer();
-      renderDashboard();
-    }
-
-    function handleYearChange() {
-      state.baseYear = document.getElementById("selectBaseYear").value;
-      state.compYear = document.getElementById("selectCompYear").value;
-
-      const forecastSelect = document.getElementById("selectForecastYear");
-      const nextYear = (parseInt(state.compYear) + 1).toString();
-      
-      if (Array.from(forecastSelect.options).some(opt => opt.value === nextYear)) {
-        forecastSelect.value = nextYear;
-      }
-      state.forecastYear = forecastSelect.value;
-      renderDashboard();
-    }
-
-    function updateTargetGrowthLabel(val) {
-      state.targetGrowthAdj = parseInt(val);
-      document.getElementById("targetGrowthVal").innerText = `${val >= 0 ? '+' : ''}${val}%`;
-    }
-
-    function updateSafetyBuffer(val) {
-      state.safetyBufferPct = parseInt(val);
-      document.getElementById("lblBufferVal").innerText = `${val}%`;
-      renderDashboard();
-    }
-
-    function filterTableByStatus(status) {
-      state.statusFilter = status;
-      document.querySelectorAll(".status-tab").forEach(btn => {
-        btn.classList.remove("bg-sky-600", "text-white", "shadow-sm");
-        btn.classList.add("bg-slate-100", "text-slate-700", "border", "border-slate-200");
-      });
-      const activeTab = document.getElementById(`tabStatus${status}`);
-      if (activeTab) {
-        activeTab.classList.remove("bg-slate-100", "text-slate-700", "border-slate-200");
-        activeTab.classList.add("bg-sky-600", "text-white", "shadow-sm");
-      }
-      renderDashboard();
-    }
-
-    function resetAllFilters() {
-      state.baseYear = "2024";
-      state.compYear = "2025";
-      state.forecastYear = "2026";
-      state.forecastModel = "cagr";
-      state.targetGrowthAdj = 10;
-      state.selectedMonth = "ALL";
-      state.selectedCategory = "ALL";
-      state.searchQuery = "";
-      state.safetyBufferPct = 15;
-      state.statusFilter = "ALL";
-
-      document.getElementById("selectBaseYear").value = "2024";
-      document.getElementById("selectCompYear").value = "2025";
-      document.getElementById("selectForecastYear").value = "2026";
-      document.getElementById("selectForecastModel").value = "cagr";
-      document.getElementById("inputGrowthTarget").value = 10;
-      updateTargetGrowthLabel(10);
-      document.getElementById("selectCategory").value = "ALL";
-      document.getElementById("inputSearch").value = "";
-      document.getElementById("inputSafetyBuffer").value = 15;
-      document.getElementById("lblBufferVal").innerText = "15%";
-
-      initMonthSlicer();
-      filterTableByStatus("ALL");
-      showToast("รีเซ็ตตัวกรองทั้งหมดเรียบร้อยแล้ว");
-    }
-
-    /* ==========================================================================
-       5. MAIN RENDER PIPELINE
-       ========================================================================== */
-    function renderDashboard() {
-      document.querySelectorAll(".lblBaseYear").forEach(el => el.innerText = state.baseYear);
-      document.querySelectorAll(".lblCompYear").forEach(el => el.innerText = state.compYear);
-      document.querySelectorAll(".lblForecastYear").forEach(el => el.innerText = state.forecastYear);
-
-      state.selectedCategory = document.getElementById("selectCategory").value;
-      state.searchQuery = document.getElementById("inputSearch").value.trim().toLowerCase();
-      state.forecastModel = document.getElementById("selectForecastModel").value;
-
-      const filteredProducts = MASTER_PRODUCTS.filter(p => {
-        const matchCategory = state.selectedCategory === "ALL" || p.category_id === state.selectedCategory;
-        const matchSearch = p.product_name.toLowerCase().includes(state.searchQuery) || p.sku.toLowerCase().includes(state.searchQuery);
-        return matchCategory && matchSearch;
-      });
-
-      const mText = state.selectedMonth === "ALL" ? "12 เดือนทั้งหมด" : `เดือน ${FULL_MONTH_NAMES[state.selectedMonth]}`;
-      const cText = state.selectedCategory === "ALL" ? "ทุกหมวดหมู่" : getCategoryNameById(state.selectedCategory);
-      document.getElementById("filterSummaryText").innerHTML = `แสดงข้อมูล: <span class="text-sky-700 font-semibold">${mText} (${cText})</span>`;
-
-      let totalRevY1 = 0, totalQtyY1 = 0;
-      let totalRevY2 = 0, totalQtyY2 = 0;
-      let totalRevFc = 0, totalQtyFc = 0;
-      let totalRecommendedStockAll = 0;
-      let urgentCount = 0;
-
-      const processedList = filteredProducts.map(prod => {
-        const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
-        const result = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
+        product_id: rawPid,
+        sku: pid,
+        product_name: p.product_name || p.name || `สินค้า ${pid}`,
+        category_id: catId,
+        category_name: catName,
+        unit_price: price || 0,
+        cost: toNumber(p.cost || 0),
+        current_stock: toNumber(p.stock || p.quantity || 0),
+        icon: p.icon || "",
         
-        totalRevY1 += result.salesY1.revenue;
-        totalQtyY1 += result.salesY1.units;
+        forecast_2026_qty: fcQty2026,
+        forecast_2027_qty: fcQty2027,
+        monthly_forecast: mapStockRec.get(pid) || null,
+        ai_growth_pct: rg ? Number(rg.growth_pct || 0) : 0,
+        stock_recommendation_2027: recStock2027
+      };
+    });
 
-        totalRevY2 += result.salesY2.revenue;
-        totalQtyY2 += result.salesY2.units;
+    if (typeof populateYearSelectors === "function") populateYearSelectors();
 
-        totalRevFc += result.fcRevenue;
-        totalQtyFc += result.fcUnits;
+  } catch (err) {
+    console.error("เกิดข้อผิดพลาดในการดึงข้อมูลจาก DB:", err);
+  } finally {
+    if (typeof updateYearLabels === "function") updateYearLabels();
+    if (typeof renderDashboard === "function") renderDashboard();
+  }
+}
 
-        totalRecommendedStockAll += result.totalRecommendedStock;
-        if (result.status === "URGENT") urgentCount++;
+/* ==========================================================================
+   5. UI CONTROLS & RENDER
+   ========================================================================== */
+function populateCategoryDropdown() {
+  const sel = document.getElementById("selCategory") || document.getElementById("categoryFilter") || document.getElementById("selectCategory");
+  if (!sel) return;
 
-        return { product: prod, ...result };
-      });
+  sel.innerHTML = `<option value="ALL">ทุกหมวดหมู่</option>`;
+  if (Array.isArray(MASTER_CATEGORIES)) {
+    MASTER_CATEGORIES.forEach((cat) => {
+      const opt = document.createElement("option");
+      opt.value = cat.category_id;
+      opt.textContent = cat.category_name;
+      sel.appendChild(opt);
+    });
+  }
+}
 
-      document.getElementById("kpiBaseYearRev").innerText = `฿${totalRevY1.toLocaleString()}`;
-      document.getElementById("kpiBaseYearQty").innerText = `${totalQtyY1.toLocaleString()} ชิ้น`;
+function getCategoryNameById(catId) {
+  const key = normId(catId);
+  const c = MASTER_CATEGORIES.find((cat) => normId(cat.category_id) === key);
+  return c ? c.category_name : categoryMap.get(key) || `หมวด ${catId}`;
+}
 
-      document.getElementById("kpiCompYearRev").innerText = `฿${totalRevY2.toLocaleString()}`;
-      const overallYoY = totalRevY1 > 0 ? (((totalRevY2 - totalRevY1) / totalRevY1) * 100).toFixed(1) : 0;
-      document.getElementById("kpiYoYGrowthBadge").innerText = `YoY: ${overallYoY >= 0 ? '+' : ''}${overallYoY}%`;
+function initMonthSlicer() {
+  const container = document.getElementById("monthSlicerContainer");
+  if (!container) return;
 
-      document.getElementById("kpiForecastRev").innerText = `฿${totalRevFc.toLocaleString()}`;
-      document.getElementById("kpiForecastQty").innerText = `เป้าหมาย: ${totalQtyFc.toLocaleString()} ชิ้น`;
+  const months = [
+    { label: "ทั้งหมด (12 เดือน)", value: "ALL" },
+    ...MONTH_NAMES.map((m, idx) => ({ label: m, value: idx }))
+  ];
 
-      document.getElementById("kpiRecommendedStock").innerText = `${totalRecommendedStockAll.toLocaleString()} ชิ้น`;
-      document.getElementById("kpiUrgentSkusCount").innerText = `🚨 สั่งซื้อด่วน: ${urgentCount} รายการ`;
+  container.innerHTML = months.map(m => {
+    const isActive = state.selectedMonth === m.value;
+    const activeClass = isActive 
+      ? "bg-sky-600 text-white font-bold shadow-sm border-sky-600" 
+      : "bg-white text-slate-700 hover:bg-slate-100 border-slate-200";
+    
+    return `
+      <button
+        type="button"
+        onclick="selectMonth('${m.value}')"
+        class="month-pill text-sm px-3.5 py-2 rounded-xl transition font-medium border ${activeClass}"
+      >
+        ${m.label}
+      </button>
+    `;
+  }).join("");
+}
 
-      renderTopSellerCards(processedList);
-      renderMonthlyTrendChart(filteredProducts);
-      renderCategoryBreakdownChart(filteredProducts);
-      renderInventoryTable(processedList);
+function selectMonth(val) {
+  state.selectedMonth = val === "ALL" ? "ALL" : parseInt(val, 10);
+  initMonthSlicer();
+  renderDashboard();
+}
 
-      if (window.lucide) lucide.createIcons();
-    }
+function updateSafetyBuffer(val) {
+  state.safetyBufferPct = parseInt(val);
+  const el = document.getElementById("lblBufferVal");
+  if (el) el.innerText = `${val}%`;
+  renderDashboard();
+}
 
-    /* ==========================================================================
-       6. BEST SELLER CARDS
-       ========================================================================== */
-    function renderTopSellerCards(list) {
-      if (!list || list.length === 0) {
-        const noDataHtml = `<p class="text-xs text-slate-600 py-4 text-center">ไม่พบข้อมูลสินค้า</p>`;
-        document.getElementById("cardBaseTopSeller").innerHTML = noDataHtml;
-        document.getElementById("cardCompTopSeller").innerHTML = noDataHtml;
-        document.getElementById("cardForecastTopSeller").innerHTML = noDataHtml;
-        return;
-      }
+function filterTableByStatus(status) {
+  state.statusFilter = status;
+  document.querySelectorAll(".status-tab").forEach((btn) => {
+    btn.classList.remove("bg-sky-600", "text-white", "shadow-sm");
+    btn.classList.add("bg-slate-100", "text-slate-700", "border", "border-slate-200");
+  });
+  const activeTab = document.getElementById(`tabStatus${status}`);
+  if (activeTab) {
+    activeTab.classList.remove("bg-slate-100", "text-slate-700", "border-slate-200");
+    activeTab.classList.add("bg-sky-600", "text-white", "shadow-sm");
+  }
+  renderDashboard();
+}
 
-      const topY1 = [...list].sort((a, b) => b.salesY1.units - a.salesY1.units)[0];
-      document.getElementById("cardBaseTopSeller").innerHTML = `
-        <div class="flex items-start gap-3">
-          <div class="text-3xl p-2 bg-slate-100 rounded-xl border border-slate-200">${topY1.product.icon || '📦'}</div>
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-bold text-slate-800 truncate">${topY1.product.product_name}</h4>
-            <p class="text-[11px] text-slate-600">${topY1.product.sku} | ${getCategoryNameById(topY1.product.category_id)}</p>
-            <div class="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
-              <span class="text-xs text-slate-700 font-semibold">${topY1.salesY1.units.toLocaleString()} ชิ้น</span>
-              <span class="text-xs font-bold text-slate-900">฿${topY1.salesY1.revenue.toLocaleString()}</span>
-            </div>
+function resetAllFilters() {
+  state.baseYear = 2024;
+  state.compYear = 2025;
+  state.forecastYear = 2026;
+  populateYearSelectors();
+
+  state.selectedMonth = "ALL";
+  state.selectedCategory = "ALL";
+  state.searchQuery = "";
+  state.safetyBufferPct = 15;
+  state.statusFilter = "ALL";
+
+  const selCat = document.getElementById("selCategory") || document.getElementById("selectCategory");
+  if (selCat) selCat.value = "ALL";
+  const inpSearch = document.getElementById("inputSearch");
+  if (inpSearch) inpSearch.value = "";
+  const inpBuffer = document.getElementById("inputSafetyBuffer");
+  if (inpBuffer) inpBuffer.value = 15;
+  const lblBuf = document.getElementById("lblBufferVal");
+  if (lblBuf) lblBuf.innerText = "15%";
+
+  initMonthSlicer();
+  filterTableByStatus("ALL");
+  showToast("รีเซ็ตตัวกรองทั้งหมดเรียบร้อยแล้ว");
+}
+
+/* ==========================================================================
+   6. MAIN DASHBOARD RENDER PIPELINE
+   ========================================================================== */
+function renderDashboard() {
+  const filteredProducts = MASTER_PRODUCTS.filter((prod) => {
+    const matchesCat = state.selectedCategory === "ALL" || normId(prod.category_id) === normId(state.selectedCategory);
+    const query = state.searchQuery.toLowerCase();
+    const matchesSearch = !query || 
+      String(prod.product_id).toLowerCase().includes(query) || 
+      String(prod.product_name).toLowerCase().includes(query);
+    return matchesCat && matchesSearch;
+  });
+
+  const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
+
+  let totalRevY1 = 0, totalQtyY1 = 0;
+  let totalRevY2 = 0, totalQtyY2 = 0;
+  let totalRevFc = 0, totalQtyFc = 0;
+  let totalRecommendedStockAll = 0;
+  let urgentCount = 0;
+
+  const processedList = filteredProducts.map((prod) => {
+    const calc = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
+    
+    totalQtyY1 += calc.salesY1.units;
+    totalRevY1 += calc.salesY1.revenue;
+
+    totalQtyY2 += calc.salesY2.units;
+    totalRevY2 += calc.salesY2.revenue;
+
+    totalQtyFc += calc.fcUnits;
+    totalRevFc += calc.fcRevenue;
+
+    totalRecommendedStockAll += calc.totalRecommendedStock;
+    if (calc.status === "URGENT") urgentCount++;
+
+    return { product: prod, ...calc };
+  });
+
+  const elAmt = document.getElementById("totalBaseSalesAmt") || document.getElementById("lblBaseSalesAmount") || document.getElementById("totalBaseSales");
+  const elQty = document.getElementById("totalBaseSalesQty");
+
+  if (elAmt) elAmt.textContent = "฿" + totalRevY1.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (elQty) elQty.textContent = totalQtyY1.toLocaleString("th-TH") + " ชิ้น";
+
+  const kpiBaseRev = document.getElementById("kpiBaseYearRev");
+  if (kpiBaseRev) kpiBaseRev.innerText = `฿${Math.round(totalRevY1).toLocaleString()}`;
+  const kpiBaseQty = document.getElementById("kpiBaseYearQty");
+  if (kpiBaseQty) kpiBaseQty.innerText = `${totalQtyY1.toLocaleString()} ชิ้น`;
+
+  const kpiCompRev = document.getElementById("kpiCompYearRev");
+  if (kpiCompRev) kpiCompRev.innerText = `฿${Math.round(totalRevY2).toLocaleString()}`;
+  
+  const kpiCompQty = document.getElementById("kpiCompYearQty") || document.getElementById("kpiCompYearUnits");
+  if (kpiCompQty) kpiCompQty.innerText = `${totalQtyY2.toLocaleString()} ชิ้น`;
+
+  const kpiFcRev = document.getElementById("kpiForecastRev");
+  if (kpiFcRev) kpiFcRev.innerText = `฿${Math.round(totalRevFc).toLocaleString()}`;
+
+  const kpiFcQty = document.getElementById("kpiForecastQty");
+  if (kpiFcQty) kpiFcQty.innerText = `เป้าหมาย: ${totalQtyFc.toLocaleString()} ชิ้น`;
+
+  const kpiRecStock = document.getElementById("kpiRecommendedStock");
+  if (kpiRecStock) kpiRecStock.innerText = `${totalRecommendedStockAll.toLocaleString()} ชิ้น`;
+  const kpiUrgent = document.getElementById("kpiUrgentSkusCount");
+  if (kpiUrgent) kpiUrgent.innerText = `สั่งซื้อด่วน: ${urgentCount} รายการ`;
+
+  currentPage = 1;
+  renderTopSellerCards(processedList);
+  renderMonthlyTrendChart(processedList);
+  renderCategoryBreakdownChart(processedList);
+  renderInventoryTable(processedList);
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/* ==========================================================================
+   7. BEST SELLER CARDS
+   ========================================================================== */
+function renderTopSellerCards(list) {
+  const cardBase = document.getElementById("cardBaseTopSeller");
+  const cardComp = document.getElementById("cardCompTopSeller");
+  const cardFc = document.getElementById("cardForecastTopSeller");
+
+  if (!list || list.length === 0) {
+    const noDataHtml = `<p class="text-sm text-slate-500 py-4 text-center">ไม่พบข้อมูลสินค้า</p>`;
+    if (cardBase) cardBase.innerHTML = noDataHtml;
+    if (cardComp) cardComp.innerHTML = noDataHtml;
+    if (cardFc) cardFc.innerHTML = noDataHtml;
+    return;
+  }
+
+  const topY1 = [...list].sort((a, b) => b.salesY1.units - a.salesY1.units)[0];
+  if (cardBase && topY1) {
+    cardBase.innerHTML = `
+      <div class="flex items-start gap-3.5">
+        <div class="text-3xl p-2.5 bg-slate-100 rounded-xl border border-slate-200">${topY1.product.icon || ''}</div>
+        <div class="flex-1 min-w-0">
+          <h4 class="text-base font-bold text-slate-800 truncate" title="${escapeHtml(topY1.product.product_name)}">${escapeHtml(topY1.product.product_name)}</h4>
+          <p class="text-xs text-slate-500">ID: ${escapeHtml(topY1.product.product_id)} | ${escapeHtml(getCategoryNameById(topY1.product.category_id))}</p>
+          <div class="mt-2.5 flex items-center justify-between border-t border-slate-200 pt-2">
+            <span class="text-sm text-slate-700 font-semibold">${topY1.salesY1.units.toLocaleString()} ชิ้น</span>
+            <span class="text-sm font-bold text-slate-900">฿${topY1.salesY1.revenue.toLocaleString()}</span>
           </div>
         </div>
-      `;
+      </div>`;
+  }
 
-      const topY2 = [...list].sort((a, b) => b.salesY2.units - a.salesY2.units)[0];
-      const yoyVal = topY2.salesY1.units > 0 ? (((topY2.salesY2.units - topY2.salesY1.units) / topY2.salesY1.units) * 100).toFixed(1) : 0;
-      document.getElementById("cardCompTopSeller").innerHTML = `
-        <div class="flex items-start gap-3">
-          <div class="text-3xl p-2 bg-sky-100/80 rounded-xl border border-sky-200 text-sky-700">${topY2.product.icon || '📦'}</div>
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-bold text-sky-900 truncate">${topY2.product.product_name}</h4>
-            <p class="text-[11px] text-sky-700">${topY2.product.sku} | ${getCategoryNameById(topY2.product.category_id)}</p>
-            <div class="mt-2 flex items-center justify-between border-t border-sky-200 pt-2">
-              <span class="text-xs text-sky-800 font-semibold">${topY2.salesY2.units.toLocaleString()} ชิ้น</span>
-              <span class="text-xs font-bold text-emerald-600">YoY: +${yoyVal}%</span>
+  const topCompItem = [...list].sort((a, b) => b.salesY2.units - a.salesY2.units)[0];
+  if (cardComp && topCompItem) {
+    const yoyVal = topCompItem.salesY1.units > 0
+      ? (((topCompItem.salesY2.units - topCompItem.salesY1.units) / topCompItem.salesY1.units) * 100).toFixed(1)
+      : 0;
+
+    cardComp.innerHTML = `
+      <div class="flex items-start gap-3.5">
+        <div class="text-3xl p-2.5 bg-sky-100/80 rounded-xl border border-sky-200 text-sky-700">${topCompItem.product.icon || ''}</div>
+        <div class="flex-1 min-w-0">
+          <h4 class="text-base font-bold text-sky-900 truncate" title="${escapeHtml(topCompItem.product.product_name)}">${escapeHtml(topCompItem.product.product_name)}</h4>
+          <p class="text-xs text-sky-700">ID: ${escapeHtml(topCompItem.product.product_id)} | ${escapeHtml(getCategoryNameById(topCompItem.product.category_id))}</p>
+          <div class="mt-2.5 flex items-center justify-between border-t border-sky-200 pt-2">
+            <div>
+              <span class="text-sm text-sky-800 font-semibold">${Number(topCompItem.salesY2.units).toLocaleString()} ชิ้น</span>
+              <span class="text-xs ml-1.5 font-bold ${yoyVal >= 0 ? 'text-emerald-600' : 'text-red-500'}">YoY: ${yoyVal >= 0 ? '+' : ''}${yoyVal}%</span>
             </div>
+            <span class="text-sm font-bold text-slate-700">฿${Number(topCompItem.salesY2.revenue).toLocaleString()}</span>
           </div>
         </div>
-      `;
+      </div>`;
+  }
 
-      const topFc = [...list].sort((a, b) => b.fcUnits - a.fcUnits)[0];
-      document.getElementById("cardForecastTopSeller").innerHTML = `
-        <div class="flex items-start gap-3">
-          <div class="text-3xl p-2 bg-emerald-100/80 rounded-xl border border-emerald-200 text-emerald-700">${topFc.product.icon || '📦'}</div>
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-bold text-emerald-950 truncate">${topFc.product.product_name}</h4>
-            <p class="text-[11px] text-emerald-700">${topFc.product.sku} | ${getCategoryNameById(topFc.product.category_id)}</p>
-            <div class="mt-2 flex items-center justify-between border-t border-emerald-200 pt-2">
-              <div>
-                <span class="text-xs text-emerald-800 font-semibold">${topFc.fcUnits.toLocaleString()} ชิ้น</span>
-                <p class="text-[10px] text-emerald-600">Safety: +${topFc.safetyBufferUnits.toLocaleString()} ชิ้น</p>
-              </div>
-              <span class="text-xs font-bold text-emerald-700">฿${topFc.fcRevenue.toLocaleString()}</span>
+  const topFc = [...list].sort((a, b) => b.fcUnits - a.fcUnits)[0];
+  if (cardFc && topFc) {
+    cardFc.innerHTML = `
+      <div class="flex items-start gap-3.5">
+        <div class="text-3xl p-2.5 bg-emerald-100/80 rounded-xl border border-emerald-200 text-emerald-700">${topFc.product.icon || ''}</div>
+        <div class="flex-1 min-w-0">
+          <h4 class="text-base font-bold text-emerald-950 truncate" title="${escapeHtml(topFc.product.product_name)}">${escapeHtml(topFc.product.product_name)}</h4>
+          <p class="text-xs text-emerald-700">ID: ${escapeHtml(topFc.product.product_id)} | ${escapeHtml(getCategoryNameById(topFc.product.category_id))}</p>
+          <div class="mt-2.5 flex items-center justify-between border-t border-emerald-200 pt-2">
+            <div>
+              <span class="text-sm text-emerald-800 font-semibold">${topFc.fcUnits.toLocaleString()} ชิ้น</span>
+              <p class="text-xs text-emerald-600">Safety: +${topFc.safetyBufferUnits.toLocaleString()} ชิ้น</p>
             </div>
+            <span class="text-sm font-bold text-emerald-700">฿${topFc.fcRevenue.toLocaleString()}</span>
           </div>
         </div>
-      `;
+      </div>`;
+  }
+}
+
+/* ==========================================================================
+   8. CHARTS (MONTHLY TREND - ปรับปรุงเส้นโค้ง Tension 0.4)
+   ========================================================================== */
+function renderMonthlyTrendChart(processedList) {
+  const canvas = document.getElementById("chartMonthlyTrend");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  const m1 = new Array(12).fill(0);
+  const m2 = new Array(12).fill(0);
+  const mFc = new Array(12).fill(0);
+
+  processedList.forEach(item => {
+    for (let m = 0; m < 12; m++) {
+      const res = computeProductForecast(item.product, state.baseYear, state.compYear, state.forecastYear, m);
+      m1[m] += res.salesY1.units;
+      m2[m] += res.salesY2.units;
+      mFc[m] += res.fcUnits;
+    }
+  });
+
+  if (chartMonthlyTrendInstance) chartMonthlyTrendInstance.destroy();
+
+  const ctx = canvas.getContext("2d");
+  chartMonthlyTrendInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: MONTH_NAMES,
+      datasets: [
+        { label: `ปี ${formatYearLabel(state.baseYear)}`, data: m1, borderColor: "#64748b", tension: 0.4, fill: false },
+        { label: `ปี ${formatYearLabel(state.compYear)}`, data: m2, borderColor: "#0284c7", tension: 0.4, fill: true, backgroundColor: "rgba(2,132,199,0.08)" },
+        { label: `พยากรณ์ ${formatYearLabel(state.forecastYear)}`, data: mFc, borderColor: "#059669", borderDash: [5, 5], tension: 0.4, fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: false } }
+    }
+  });
+}
+
+function renderCategoryBreakdownChart(processedList) {
+  const canvas = document.getElementById("chartCategoryBreakdown");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  const catMap = new Map();
+
+  processedList.forEach(item => {
+    const cName = getCategoryNameById(item.product.category_id);
+    const prev = catMap.get(cName) || 0;
+    catMap.set(cName, prev + item.fcUnits);
+  });
+
+  const labels = Array.from(catMap.keys());
+  const data = Array.from(catMap.values());
+
+  if (chartCategoryBreakdownInstance) chartCategoryBreakdownInstance.destroy();
+
+  const ctx = canvas.getContext("2d");
+  chartCategoryBreakdownInstance = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: labels.length > 0 ? labels : ["ไม่มีข้อมูล"],
+      datasets: [{
+        data: data.length > 0 ? data : [1],
+        backgroundColor: ["#0284c7", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#64748b"]
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } }
+    }
+  });
+}
+
+/* ==========================================================================
+   9. TABLE & PAGINATION
+   ========================================================================== */
+function renderInventoryTable(processedList) {
+  const all = Array.isArray(processedList) ? processedList : [];
+  currentTableData = state.statusFilter === "ALL" ? all : all.filter((r) => r.status === state.statusFilter);
+
+  const countEl = document.getElementById("lblTableRowsCount");
+  if (countEl) countEl.innerText = currentTableData.length.toLocaleString();
+
+  renderTablePage();
+  renderTableFooter(currentTableData);
+}
+
+function renderTablePage() {
+  const tbody = document.getElementById("inventoryTableBody");
+  if (!tbody) return;
+
+  const total = currentTableData.length;
+  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  if (total === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-500">ไม่พบข้อมูลสินค้า</td></tr>`;
+  } else {
+    const start = (currentPage - 1) * rowsPerPage;
+    tbody.innerHTML = currentTableData
+      .slice(start, start + rowsPerPage)
+      .map((item) => {
+        const p = item.product;
+        const st = STATUS_UI[item.status] || STATUS_UI.NORMAL;
+        const g = item.fcGrowthPct;
+        const yoy = item.salesY1.units > 0 ? ((item.salesY2.units - item.salesY1.units) / item.salesY1.units) * 100 : 0;
+        const yoyCls = yoy >= 0 ? "text-emerald-600" : "text-red-600";
+        return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="p-3.5 font-semibold text-slate-800">${escapeHtml(p.product_id)}</td>
+        <td class="p-3.5">
+          <div class="font-semibold text-slate-800">${escapeHtml(p.icon || '')} ${escapeHtml(p.product_name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(getCategoryNameById(p.category_id))}</div>
+        </td>
+        <td class="p-3.5 text-right">${item.salesY1.units.toLocaleString()}</td>
+        <td class="p-3.5 text-right">${item.salesY2.units.toLocaleString()}</td>
+        <td class="p-3.5 text-right font-semibold ${yoyCls}">${yoy >= 0 ? "+" : ""}${yoy.toFixed(1)}%</td>
+        <td class="p-3.5 text-right font-semibold text-emerald-700" title="เติบโต ${g.toFixed(1)}%">${item.fcUnits.toLocaleString()}</td>
+        <td class="p-3.5 text-right text-amber-700">${item.safetyBufferUnits.toLocaleString()}</td>
+        <td class="p-3.5 text-right font-bold text-sky-700">${item.totalRecommendedStock.toLocaleString()}</td>
+        <td class="p-3.5 text-center"><span class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold border ${st.cls}">${st.text}</span></td>
+        <td class="p-3.5 text-center">
+          <button type="button" onclick="openProductModal('${escapeHtml(p.product_id)}')" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition">ดูรายละเอียด</button>
+        </td>
+      </tr>`;
+      }).join("");
+  }
+
+  const curPgEl = document.getElementById("currentPage");
+  if (curPgEl) curPgEl.innerText = currentPage;
+  const totPgEl = document.getElementById("totalPages");
+  if (totPgEl) totPgEl.innerText = totalPages;
+
+  const btnPrev = document.getElementById("btnPrev");
+  if (btnPrev) btnPrev.disabled = currentPage <= 1;
+  const btnNext = document.getElementById("btnNext");
+  if (btnNext) btnNext.disabled = currentPage >= totalPages;
+}
+
+function renderTableFooter(list) {
+  const row = document.getElementById("tableFooterRow");
+  if (!row) return;
+  const sum = (fn) => list.reduce((a, r) => a + fn(r), 0);
+  const y1 = sum((r) => r.salesY1.units);
+  const y2 = sum((r) => r.salesY2.units);
+  const yoy = y1 > 0 ? ((y2 - y1) / y1) * 100 : 0;
+  row.innerHTML = `
+  <td class="p-3.5 font-bold" colspan="2">รวมทั้งหมด</td>
+  <td class="p-3.5 text-right font-bold">${y1.toLocaleString()}</td>
+  <td class="p-3.5 text-right font-bold">${y2.toLocaleString()}</td>
+  <td class="p-3.5 text-right font-bold">${yoy >= 0 ? "+" : ""}${yoy.toFixed(1)}%</td>
+  <td class="p-3.5 text-right font-bold text-emerald-700">${sum((r) => r.fcUnits).toLocaleString()}</td>
+  <td class="p-3.5 text-right font-bold text-amber-700">${sum((r) => r.safetyBufferUnits).toLocaleString()}</td>
+  <td class="p-3.5 text-right font-bold text-sky-700">${sum((r) => r.totalRecommendedStock).toLocaleString()}</td>
+  <td class="p-3.5" colspan="2"></td>`;
+}
+
+function changePage(direction) {
+  currentPage += direction;
+  renderTablePage();
+}
+
+function openProductModal(productId) {
+  const targetId = normId(productId);
+  const prod = MASTER_PRODUCTS.find((p) => normId(p.product_id) === targetId);
+  if (!prod) return;
+
+  const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
+  const res = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
+
+  const modalSku = document.getElementById("modalProductSKU");
+  if (modalSku) modalSku.innerText = `ID: ${prod.product_id}`;
+  const modalName = document.getElementById("modalProductName");
+  if (modalName) modalName.innerText = prod.product_name;
+  const modalCat = document.getElementById("modalProductCategory");
+  if (modalCat) modalCat.innerText = getCategoryNameById(prod.category_id);
+  const modalIcon = document.getElementById("modalProductIcon");
+  if (modalIcon) modalIcon.innerText = prod.icon || '';
+
+  const modalBase = document.getElementById("modalBaseUnits");
+  if (modalBase) modalBase.innerText = `${res.salesY1.units.toLocaleString()} ชิ้น`;
+  const modalComp = document.getElementById("modalCompUnits");
+  if (modalComp) modalComp.innerText = `${res.salesY2.units.toLocaleString()} ชิ้น`;
+  const modalFc = document.getElementById("modalForecastUnits");
+  if (modalFc) modalFc.innerText = `${res.fcUnits.toLocaleString()} ชิ้น`;
+
+  const stockBox = document.getElementById("modalStockActionBox");
+  if (stockBox) {
+    stockBox.innerHTML = `
+  <div>
+    <span class="font-bold text-amber-900">คำแนะนำการสั่งซื้อ (Recommended Order):</span>
+    <p>พยากรณ์ ${res.fcUnits.toLocaleString()} + สำรองสต็อก ${res.safetyBufferUnits.toLocaleString()} (${state.safetyBufferPct}%) = <span class="font-bold underline text-amber-950">${res.totalRecommendedStock.toLocaleString()} ชิ้น</span></p>
+  </div>
+  <button onclick="showToast('ออกใบสั่งซื้อ PO สำเร็จ'); closeModal();" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-semibold text-xs shadow-sm transition">
+    สร้างใบสั่งซื้อ PO
+  </button>`;
+  }
+
+  const modalChartEl = document.getElementById("modalChartSingleProduct");
+  if (modalChartEl && typeof Chart !== "undefined") {
+    const ctx = modalChartEl.getContext("2d");
+    const m1 = [], m2 = [], mFc = [];
+    for (let m = 0; m < 12; m++) {
+      const singleRes = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, m);
+      m1.push(singleRes.salesY1.units);
+      m2.push(singleRes.salesY2.units);
+      mFc.push(singleRes.fcUnits);
     }
 
-    /* ==========================================================================
-       7. CHARTS (CHART.JS INTEGRATION)
-       ========================================================================== */
-    function renderMonthlyTrendChart(filteredProducts) {
-      const ctx = document.getElementById("chartMonthlyTrend").getContext("2d");
-      const monthlyY1 = new Array(12).fill(0);
-      const monthlyY2 = new Array(12).fill(0);
-      const monthlyFc = new Array(12).fill(0);
+    if (modalSingleChartInstance) modalSingleChartInstance.destroy();
 
-      filteredProducts.forEach(prod => {
-        for (let m = 0; m < 12; m++) {
-          monthlyY1[m] += computeProductSales(prod, state.baseYear, m).units;
-          monthlyY2[m] += computeProductSales(prod, state.compYear, m).units;
-          monthlyFc[m] += computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, m).fcUnits;
-        }
-      });
+    modalSingleChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: MONTH_NAMES,
+        datasets: [
+          { label: `ปี ${formatYearLabel(state.baseYear)}`, data: m1, borderColor: "#64748b", tension: 0.4 },
+          { label: `ปี ${formatYearLabel(state.compYear)}`, data: m2, borderColor: "#0284c7", tension: 0.4 },
+          { label: `พยากรณ์ ${formatYearLabel(state.forecastYear)}`, data: mFc, borderColor: "#10b981", borderDash: [4, 4], tension: 0.4 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
 
-      if (chartMonthlyTrendInstance) chartMonthlyTrendInstance.destroy();
+  const modalContainer = document.getElementById("productDetailModal");
+  if (modalContainer) modalContainer.classList.remove("hidden");
+  if (window.lucide) lucide.createIcons();
+}
 
-      chartMonthlyTrendInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: MONTH_NAMES,
-          datasets: [
-            { label: `ปีฐาน (${state.baseYear})`, data: monthlyY1, borderColor: '#64748b', borderWidth: 2, tension: 0.3 },
-            { label: `ปีเปรียบเทียบ (${state.compYear})`, data: monthlyY2, borderColor: '#0284c7', borderWidth: 2.5, tension: 0.3, fill: true },
-            { label: `พยากรณ์ (${state.forecastYear})`, data: monthlyFc, borderColor: '#059669', borderWidth: 2.5, borderDash: [5, 5], tension: 0.3 }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: { x: { grid: { color: 'rgba(0, 0, 0, 0.05)' } }, y: { grid: { color: 'rgba(0, 0, 0, 0.05)' } } }
-        }
-      });
+function closeModal() {
+  const modalContainer = document.getElementById("productDetailModal");
+  if (modalContainer) modalContainer.classList.add("hidden");
+}
+
+/* ==========================================================================
+   10. EXPORT & UTILS
+   ========================================================================== */
+function exportPOToCSV() {
+  const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
+  let csvContent = "\uFEFF";
+  csvContent += `รายงานการพยากรณ์ยอดขายและวางแผนการสั่งซื้อสต็อก (PO Plan)\n`;
+  csvContent += `product_id,ชื่อสินค้า,หมวดหมู่,ราคาต่อชิ้น,ยอดขายปีฐาน(${formatYearLabel(state.baseYear)}),ยอดขายปีล่าสุด(${formatYearLabel(state.compYear)}),%YoY Growth,ความต้องการพยากรณ์(${formatYearLabel(state.forecastYear)}),Safety Buffer,ยอดสต็อกแนะนำรวม,สถานะวางแผน\n`;
+
+  MASTER_PRODUCTS.forEach((prod) => {
+    const res = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
+    let statusTxt = res.status === "URGENT" ? "สั่งซื้อด่วน" : res.status === "PREPARE" ? "ควรเตรียมสต็อก" : "ยอดปกติ";
+    csvContent += `"${prod.product_id}","${prod.product_name}","${getCategoryNameById(prod.category_id)}",${prod.unit_price},${res.salesY1.units},${res.salesY2.units},${res.fcGrowthPct.toFixed(2)}%,${res.fcUnits},${res.safetyBufferUnits},${res.totalRecommendedStock},"${statusTxt}"\n`;
+  });
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.getElementById("a_download_link") || document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `PO_Stock_Plan_${state.forecastYear}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  showToast("ส่งออกไฟล์ CSV เรียบร้อยแล้ว");
+}
+
+function showToast(msg) {
+  const toast = document.getElementById("toastNotification");
+  const msgEl = document.getElementById("toastMessage");
+  if (msgEl) msgEl.innerText = msg;
+  if (toast) {
+    toast.classList.remove("translate-y-20", "opacity-0");
+    setTimeout(() => {
+      toast.classList.add("translate-y-20", "opacity-0");
+    }, 3000);
+  }
+}
+
+/* ==========================================================================
+   11. INITIALIZATION
+   ========================================================================== */
+document.addEventListener("DOMContentLoaded", async () => {
+  initMonthSlicer();
+
+  ["selectBaseYear", "selectCompYear", "selectForecastYear"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", handleYearChange);
     }
+  });
 
-    function renderCategoryBreakdownChart(filteredProducts) {
-      const ctx = document.getElementById("chartCategoryBreakdown").getContext("2d");
-      const catMap = {};
+  const selCat = document.getElementById("selCategory") || document.getElementById("categoryFilter") || document.getElementById("selectCategory");
+  if (selCat) {
+    selCat.addEventListener("change", (e) => {
+      state.selectedCategory = e.target.value;
+      renderDashboard();
+    });
+  }
 
-      filteredProducts.forEach(prod => {
-        const catName = getCategoryNameById(prod.category_id);
-        if (!catMap[catName]) catMap[catName] = { comp: 0, fc: 0 };
-        const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
-        const res = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
-        catMap[catName].comp += res.salesY2.revenue;
-        catMap[catName].fc += res.fcRevenue;
-      });
+  const inpSearch = document.getElementById("inputSearch") || document.getElementById("searchKeyword");
+  if (inpSearch) {
+    inpSearch.addEventListener("input", (e) => {
+      state.searchQuery = e.target.value.trim();
+      renderDashboard();
+    });
+  }
 
-      const categories = Object.keys(catMap);
-      const compRevenues = categories.map(c => catMap[c].comp);
-      const fcRevenues = categories.map(c => catMap[c].fc);
-
-      if (chartCategoryBreakdownInstance) chartCategoryBreakdownInstance.destroy();
-
-      chartCategoryBreakdownInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: categories,
-          datasets: [
-            { label: `ปี ${state.compYear}`, data: compRevenues, backgroundColor: '#0284c7' },
-            { label: `พยากรณ์ ${state.forecastYear}`, data: fcRevenues, backgroundColor: '#10b981' }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          indexAxis: 'y'
-        }
-      });
-    }
-
-    /* ==========================================================================
-       8. TABLE & MODALS & EXPORT
-       ========================================================================== */
-    function renderInventoryTable(processedList) {
-      const tbody = document.getElementById("inventoryTableBody");
-      tbody.innerHTML = "";
-
-      const filteredList = processedList.filter(item => state.statusFilter === "ALL" || item.status === state.statusFilter);
-      document.getElementById("lblTableRowsCount").innerText = filteredList.length;
-
-      if (filteredList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-600">ไม่พบรายการสินค้าที่ตรงตามเงื่อนไข</td></tr>`;
-        document.getElementById("tableFooterRow").innerHTML = "";
-        return;
-      }
-
-      let sumY1Units = 0, sumY2Units = 0, sumFcUnits = 0, sumBufferUnits = 0, sumRecStock = 0;
-
-      filteredList.forEach(item => {
-        sumY1Units += item.salesY1.units;
-        sumY2Units += item.salesY2.units;
-        sumFcUnits += item.fcUnits;
-        sumBufferUnits += item.safetyBufferUnits;
-        sumRecStock += item.totalRecommendedStock;
-
-        let statusBadge = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">🟢 ยอดปกติ</span>`;
-        if (item.status === "URGENT") {
-          statusBadge = `<span class="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">🚨 สั่งซื้อด่วน</span>`;
-        } else if (item.status === "PREPARE") {
-          statusBadge = `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">⚠️ ควรเตรียมสต็อก</span>`;
-        }
-
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50 transition";
-        tr.innerHTML = `
-          <td class="p-3 font-mono font-medium text-sky-700">${item.product.sku}</td>
-          <td class="p-3">
-            <div class="font-semibold text-slate-800 flex items-center gap-1.5">
-              <span>${item.product.icon || '📦'}</span>
-              <span>${item.product.product_name}</span>
-            </div>
-            <div class="text-[10px] text-slate-600">${getCategoryNameById(item.product.category_id)} (฿${item.product.unit_price}/ชิ้น)</div>
-          </td>
-          <td class="p-3 text-right text-slate-600">${item.salesY1.units.toLocaleString()}</td>
-          <td class="p-3 text-right font-medium text-sky-800">${item.salesY2.units.toLocaleString()}</td>
-          <td class="p-3 text-right font-bold ${item.fcGrowthPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
-            ${item.fcGrowthPct >= 0 ? '+' : ''}${item.fcGrowthPct.toFixed(1)}%
-          </td>
-          <td class="p-3 text-right font-bold text-emerald-700">${item.fcUnits.toLocaleString()}</td>
-          <td class="p-3 text-right text-amber-700">+${item.safetyBufferUnits.toLocaleString()}</td>
-          <td class="p-3 text-right font-bold text-sky-800 bg-sky-50/50">${item.totalRecommendedStock.toLocaleString()}</td>
-          <td class="p-3 text-center">${statusBadge}</td>
-          <td class="p-3 text-center">
-            <button onclick="openProductModal('${item.product.sku}')" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-sky-700 rounded-lg transition border border-slate-300">
-              <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.getElementById("tableFooterRow").innerHTML = `
-        <td colspan="2" class="p-3 text-slate-800">รวมผลทั้งหมด (${filteredList.length} รายการ)</td>
-        <td class="p-3 text-right">${sumY1Units.toLocaleString()}</td>
-        <td class="p-3 text-right text-sky-700">${sumY2Units.toLocaleString()}</td>
-        <td class="p-3 text-right text-slate-600">-</td>
-        <td class="p-3 text-right text-emerald-700">${sumFcUnits.toLocaleString()}</td>
-        <td class="p-3 text-right text-amber-700">+${sumBufferUnits.toLocaleString()}</td>
-        <td class="p-3 text-right text-sky-800 font-bold bg-sky-100/60">${sumRecStock.toLocaleString()} ชิ้น</td>
-        <td colspan="2"></td>
-      `;
-    }
-
-    function openProductModal(sku) {
-      const prod = MASTER_PRODUCTS.find(p => p.sku === sku);
-      if (!prod) return;
-
-      const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
-      const res = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
-
-      document.getElementById("modalProductSKU").innerText = prod.sku;
-      document.getElementById("modalProductName").innerText = prod.product_name;
-      document.getElementById("modalProductCategory").innerText = getCategoryNameById(prod.category_id);
-      document.getElementById("modalProductIcon").innerText = prod.icon || '📦';
-
-      document.getElementById("modalBaseUnits").innerText = `${res.salesY1.units.toLocaleString()} ชิ้น`;
-      document.getElementById("modalCompUnits").innerText = `${res.salesY2.units.toLocaleString()} ชิ้น`;
-      document.getElementById("modalForecastUnits").innerText = `${res.fcUnits.toLocaleString()} ชิ้น`;
-
-      const stockBox = document.getElementById("modalStockActionBox");
-      stockBox.innerHTML = `
-        <div>
-          <span class="font-bold text-amber-900">คำแนะนำการสั่งซื้อ (Recommended Order):</span>
-          <p>พยากรณ์ ${res.fcUnits.toLocaleString()} + สำรองสต็อก ${res.safetyBufferUnits.toLocaleString()} (${state.safetyBufferPct}%) = <span class="font-bold underline text-amber-950">${res.totalRecommendedStock.toLocaleString()} ชิ้น</span></p>
-        </div>
-        <button onclick="showToast('ออกใบสั่งซื้อ PO สำเร็จ'); closeModal();" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-semibold text-xs shadow-sm transition">
-          สร้างใบสั่งซื้อ PO
-        </button>
-      `;
-
-      const ctx = document.getElementById("modalChartSingleProduct").getContext("2d");
-      const m1 = [], m2 = [], mFc = [];
-      for (let m = 0; m < 12; m++) {
-        m1.push(computeProductSales(prod, state.baseYear, m).units);
-        m2.push(computeProductSales(prod, state.compYear, m).units);
-        mFc.push(computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, m).fcUnits);
-      }
-
-      if (modalSingleChartInstance) modalSingleChartInstance.destroy();
-
-      modalSingleChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: MONTH_NAMES,
-          datasets: [
-            { label: `ปี ${state.baseYear}`, data: m1, borderColor: '#64748b' },
-            { label: `ปี ${state.compYear}`, data: m2, borderColor: '#0284c7' },
-            { label: `พยากรณ์ ${state.forecastYear}`, data: mFc, borderColor: '#10b981', borderDash: [4, 4] }
-          ]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-
-      document.getElementById("productDetailModal").classList.remove("hidden");
-      if (window.lucide) lucide.createIcons();
-    }
-
-    function closeModal() {
-      document.getElementById("productDetailModal").classList.add("hidden");
-    }
-
-    function exportPOToCSV() {
-      const monthIdx = state.selectedMonth === "ALL" ? null : state.selectedMonth;
-      let csvContent = "\uFEFF";
-      csvContent += `รายงานการพยากรณ์ยอดขายและวางแผนการสั่งซื้อสต็อก (PO Plan)\n`;
-      csvContent += `SKU,ชื่อสินค้า,หมวดหมู่,ราคาต่อชิ้น,ยอดขายปีฐาน(${state.baseYear}),ยอดขายปีล่าสุด(${state.compYear}),%YoY Growth,ความต้องการพยากรณ์(${state.forecastYear}),Safety Stock Buffer,ยอดสต็อกแนะนำรวม,สถานะวางแผน\n`;
-
-      MASTER_PRODUCTS.forEach(prod => {
-        const res = computeProductForecast(prod, state.baseYear, state.compYear, state.forecastYear, monthIdx);
-        let statusTxt = res.status === "URGENT" ? "สั่งซื้อด่วน" : res.status === "PREPARE" ? "ควรเตรียมสต็อก" : "ยอดปกติ";
-        csvContent += `"${prod.sku}","${prod.product_name}","${getCategoryNameById(prod.category_id)}",${prod.unit_price},${res.salesY1.units},${res.salesY2.units},${res.fcGrowthPct.toFixed(2)}%,${res.fcUnits},${res.safetyBufferUnits},${res.totalRecommendedStock},"${statusTxt}"\n`;
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `PO_Stock_Plan_${state.forecastYear}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      showToast("ส่งออกไฟล์ CSV เรียบร้อยแล้ว");
-    }
-
-    function showToast(msg) {
-      const toast = document.getElementById("toastNotification");
-      document.getElementById("toastMessage").innerText = msg;
-      toast.classList.remove("translate-y-20", "opacity-0");
-      setTimeout(() => {
-        toast.classList.add("translate-y-20", "opacity-0");
-      }, 3000);
-    }
-
-    /* ==========================================================================
-       9. ASYNC INIT ENGINE
-       ========================================================================== */
-    window.onload = async function() {
-      initMonthSlicer();
-      await loadCategoriesFromAPI();
-      await loadProductsFromAPI();
-    };
-  </script>
-</body>
+  try {
+    await loadCategoriesFromAPI();
+    await loadProductsFromAPI();
+  } catch (err) {
+    console.error("Initialization Error:", err);
+  }
+});
+</script>
+  </body>
 </html>
